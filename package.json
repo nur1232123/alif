@@ -1,22 +1,45 @@
 {
   "name": "alif",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/golos-text": "^0.4.2",
+    "@expo-google-fonts/scheherazade-new": "^0.4.3",
+    "@expo/metro-runtime": "~58.0.17",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~58.0.4",
     "expo": "~58.0.23",
+    "expo-audio": "~58.0.11",
+    "expo-constants": "~58.0.15",
+    "expo-font": "~58.0.11",
+    "expo-linking": "~58.0.16",
+    "expo-router": "~58.0.30",
+    "expo-speech": "~58.0.3",
     "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
     "react": "19.3.0",
-    "react-native": "0.88.1"
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-web": "~0.21.4"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check": "tsc --noEmit && tsx scripts/check-content.ts",
+    "web:build": "node scripts/build-web.mjs",
+    "lint": "expo lint"
   },
   "private": true
 }
