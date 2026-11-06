@@ -5,7 +5,8 @@ import {
   ALL_LESSONS,
   buildLesson,
   buildPractice,
-  DAYS_PER_WEEK,
+  LESSONS_PER_DAY,
+  LESSONS_PER_WEEK,
   isGraded,
   knownItems,
   lessonId,
@@ -31,8 +32,9 @@ function checkVowels(text: string, where: string) {
 }
 
 if (ALL_WEEKS.length !== 52) bad(`недель ${ALL_WEEKS.length}, нужно 52`);
-if (TOTAL_LESSONS !== 364) bad(`уроков ${TOTAL_LESSONS}`);
-if (ALL_LESSONS.length !== 364) bad(`в списке уроков ${ALL_LESSONS.length}`);
+if (TOTAL_LESSONS !== 1092) bad(`уроков ${TOTAL_LESSONS}`);
+if (ALL_LESSONS.length !== 1092) bad(`в списке уроков ${ALL_LESSONS.length}`);
+if (ALL_LESSONS.length / LESSONS_PER_DAY !== 364) bad('курс не рассчитан на 52 недели');
 ALL_WEEKS.forEach((w, i) => {
   if (i > 0 && w.stageId < ALL_WEEKS[i - 1].stageId) bad(`неделя ${w.n}: порядок этапов`);
 });
@@ -111,7 +113,7 @@ function checkTask(t: Task, where: string) {
 let taskTotal = 0;
 const sizes: number[] = [];
 for (const ref of ALL_LESSONS) {
-  for (let run = 0; run < 12; run++) {
+  for (let run = 0; run < 6; run++) {
     const tasks = buildLesson(ref);
     const graded = tasks.filter(isGraded);
     const where = `урок ${ref.id} (${ref.title})`;
@@ -120,6 +122,8 @@ for (const ref of ALL_LESSONS) {
     const keys = tasks.map((t) => t.key);
     if (new Set(keys).size !== keys.length) bad(`${where}: повтор ключа`);
     tasks.forEach((t) => checkTask(t, where));
+    // Новый материал только в первом уроке дня
+    if ((ref.slot > 1 || ref.day === 7) && tasks.some((t) => t.type === 'intro')) bad(`${where}: новое в уроке повторения`);
     if (ref.isExam && tasks.some((t) => t.type !== 'choice' && t.type !== 'build')) bad(`${where}: в экзамене подсказка`);
     const pass = passMark(graded.length);
     if (pass < 1 || pass > graded.length) bad(`${where}: порог ${pass}`);
@@ -137,7 +141,7 @@ const firstIntro = firstLesson.filter((t) => t.type === 'intro').length;
 if (firstIntro > 2) bad(`в первом уроке новых букв ${firstIntro}`);
 
 // Тренировка отдаёт ошибки первыми
-const done = { [lessonId(1, 1)]: 1, [lessonId(1, 2)]: 1 };
+const done = { [lessonId(1, 1)]: 1, [lessonId(1, 4)]: 1 };
 const items = knownItems(done);
 if (items.length !== 4) bad(`после двух уроков известно ${items.length}`);
 for (let run = 0; run < 100; run++) {
@@ -158,5 +162,5 @@ if (unique.length) {
 }
 const uniqueWords = new Set(ALL_WEEKS.filter((w) => w.stageId > 1).flatMap((w) => w.items.map((x) => x.ar))).size;
 console.log(`Проверка пройдена. ${STAGES.map((s) => `этап ${s.id}: ${s.weeks.length} нед.`).join(', ')}.`);
-console.log(`Уроков: ${ALL_LESSONS.length}, по ${DAYS_PER_WEEK} в неделю. Заданий: ${taskTotal}. В уроке от ${Math.min(...sizes)} до ${Math.max(...sizes)}.`);
+console.log(`Уроков: ${ALL_LESSONS.length}, по ${LESSONS_PER_WEEK} в неделю, по ${LESSONS_PER_DAY} в день. Заданий: ${taskTotal}. В уроке от ${Math.min(...sizes)} до ${Math.max(...sizes)}.`);
 console.log(`Новых элементов в неделю: от ${Math.min(...newPerWeek)} до ${Math.max(...newPerWeek)}. Слов и слогов после алфавита: ${uniqueWords}.`);

@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ALL_WEEKS } from '@/data/course';
-import { ALL_LESSONS, getLesson, lessonId, DAYS_PER_WEEK } from './plan';
+import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK } from './plan';
 
-const KEY = 'alif.progress.v2';
+const KEY = 'alif.progress.v3';
 
 export type Progress = {
   name: string | null;
@@ -11,8 +11,8 @@ export type Progress = {
   done: Record<string, { score: number; total: number }>;
   /** Этапы со звездой */
   stars: number[];
-  /** День, когда пройден последний новый урок (YYYY-MM-DD) */
-  lastLessonDay: string | null;
+  /** Сколько новых уроков пройдено за день (день в формате YYYY-MM-DD) */
+  today: { day: string; count: number } | null;
   /** День последнего занятия и серия дней подряд */
   lastActive: string | null;
   streak: number;
@@ -26,7 +26,7 @@ export const EMPTY: Progress = {
   name: null,
   done: {},
   stars: [],
-  lastLessonDay: null,
+  today: null,
   lastActive: null,
   streak: 0,
   mistakes: {},
@@ -52,7 +52,7 @@ function nextStreak(p: Progress) {
 }
 
 export type LessonState = 'done' | 'open' | 'tomorrow' | 'locked';
-export type FinishResult = { stageStar: number | null; courseDone: boolean; firstTime: boolean };
+export type FinishResult = { stageStar: number | null; courseDone: boolean; firstTime: boolean; todayCount: number };
 
 type Ctx = {
   ready: boolean;
@@ -66,6 +66,8 @@ type Ctx = {
   /** Следующий урок по порядку, null если курс пройден */
   currentLessonId: string | null;
   lessonState: (id: string) => LessonState;
+  /** Новых уроков пройдено сегодня */
+  todayCount: number;
   /** Серия с учётом пропущенных дней: если вчера не занимался, она сброшена */
   liveStreak: number;
   replaceProgress: (next: Progress) => void;
@@ -120,14 +122,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       };
       const stageWeeks = ALL_WEEKS.filter((w) => w.stageId === ref.week.stageId);
       const lastWeek = stageWeeks[stageWeeks.length - 1];
-      const stageDone = lessonId(lastWeek.n, DAYS_PER_WEEK) in done;
+      const stageDone = lessonId(lastWeek.n, LESSONS_PER_WEEK) in done;
       const newStar = stageDone && !current.stars.includes(ref.week.stageId);
+      const countBefore = current.today?.day === today() ? current.today.count : 0;
+      // Повторное прохождение не тратит уроки дня
+      const todayCount = firstTime ? countBefore + 1 : countBefore;
       save({
         ...current,
         done,
         stars: newStar ? [...current.stars, ref.week.stageId] : current.stars,
-        // Повторное прохождение не тратит урок дня
-        lastLessonDay: firstTime ? today() : current.lastLessonDay,
+        today: { day: today(), count: todayCount },
         streak: nextStreak(current),
         lastActive: today(),
       });
@@ -135,6 +139,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         stageStar: newStar ? ref.week.stageId : null,
         courseDone: ALL_LESSONS.every((l) => l.id in done),
         firstTime,
+        todayCount,
       };
     },
     [save],
@@ -164,14 +169,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [progress.done],
   );
 
+  const todayCount = progress.today?.day === today() ? progress.today.count : 0;
+
   const lessonState = useCallback(
     (id: string): LessonState => {
       if (id in progress.done) return 'done';
       if (progress.unlocked) return 'open';
       if (id !== currentLessonId) return 'locked';
-      return progress.lastLessonDay === today() ? 'tomorrow' : 'open';
+      return todayCount >= LESSONS_PER_DAY ? 'tomorrow' : 'open';
     },
-    [progress, currentLessonId],
+    [progress, currentLessonId, todayCount],
   );
 
   const liveStreak = progress.lastActive === today() || progress.lastActive === yesterday() ? progress.streak : 0;
@@ -179,9 +186,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer,
-      currentLessonId, lessonState, liveStreak, replaceProgress: save,
+      currentLessonId, lessonState, todayCount, liveStreak, replaceProgress: save,
     }),
-    [ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, currentLessonId, lessonState, liveStreak, save],
+    [ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, currentLessonId, lessonState, todayCount, liveStreak, save],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

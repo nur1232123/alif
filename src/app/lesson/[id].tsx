@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
-import { buildLesson, buildPractice, getLesson, isGraded, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
+import { buildLesson, buildPractice, getLesson, isGraded, LESSONS_PER_DAY, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
 import { useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
 import { voiceEnabled } from '@/lib/voice';
@@ -93,7 +93,7 @@ function Failed({ score, total, onRetry }: { score: number; total: number; onRet
 
 function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRef | null; score: number; total: number; mistakes: number; result: FinishResult | null }) {
   const c = useColors();
-  const { progress, liveStreak } = useProgress();
+  const { progress, liveStreak, currentLessonId, lessonState } = useProgress();
   const name = progress.name ?? '';
   const accuracy = total ? Math.round((score / total) * 100) : 100;
 
@@ -110,26 +110,36 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
   }
 
   const star = result?.stageStar ? getStage(result.stageStar) : null;
-  const heading = result?.courseDone
-    ? `Вы прошли весь курс, ${name}`
-    : result?.firstTime === false
-      ? `Урок повторён, ${name}`
-      : `На сегодня всё, ${name}`;
-  const line = result?.courseDone
-    ? 'Целый год занятий позади. Тренировка всегда открыта.'
-    : result?.firstTime === false
-      ? 'Хорошо, что вы вернулись к этому уроку.'
-      : 'Давай потренируемся на том, чему научились. Новый урок откроется завтра.';
+  const count = result?.todayCount ?? 0;
+  const left = LESSONS_PER_DAY - count;
+  const canContinue = !result?.courseDone && currentLessonId !== null && lessonState(currentLessonId) === 'open';
+  const moreToday = !!result?.firstTime && left > 0 && canContinue;
+  let heading = `На сегодня всё, ${name}`;
+  let line = 'Давай потренируемся на том, чему научились. Новые уроки откроются завтра.';
+  if (result?.courseDone) {
+    heading = `Вы прошли весь курс, ${name}`;
+    line = 'Целый год занятий позади. Тренировка всегда открыта.';
+  } else if (result?.firstTime === false) {
+    heading = `Урок повторён, ${name}`;
+    line = 'Хорошо, что вы вернулись к этому уроку.';
+  } else if (moreToday) {
+    heading = `Урок ${count} из ${LESSONS_PER_DAY} пройден`;
+    line = left === 1 ? 'Сегодня остался ещё один урок.' : `Сегодня осталось ещё уроков: ${left}.`;
+  }
 
   return (
     <Screen
       footer={
         <>
-          <Button label="Давай потренируемся" onPress={() => router.replace('/lesson/practice')} testID="practice-now" />
+          {moreToday ? (
+            <Button label="Следующий урок" onPress={() => router.replace(`/lesson/${currentLessonId}`)} testID="next-lesson" />
+          ) : (
+            <Button label="Давай потренируемся" onPress={() => router.replace('/lesson/practice')} testID="practice-now" />
+          )}
           <Button label="На главную" kind="quiet" onPress={() => router.replace('/')} testID="finish" />
         </>
       }
-      testID={star ? 'result-star' : 'result-rest'}
+      testID={star ? 'result-star' : moreToday ? 'result-next' : 'result-rest'}
     >
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 }}>
         {star ? (

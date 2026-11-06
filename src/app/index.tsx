@@ -4,17 +4,19 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import type { Week } from '@/data/types';
-import { DAYS_PER_WEEK, examTitle, getLesson, knownItems, lessonId, TOTAL_LESSONS } from '@/lib/plan';
+import { examTitle, getLesson, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, TOTAL_LESSONS } from '@/lib/plan';
 import { useProgress, type LessonState } from '@/lib/progress';
 import { say } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 
-const ROW = 92;
+const ROW = 90;
 const BANNER = 104;
-const WEEK_HEIGHT = BANNER + ROW * DAYS_PER_WEEK + 12;
-const OFFSETS = [0, 52, 78, 52, 0, -52, 0];
-const NUMERALS = ['١', '٢', '٣', '٤', '٥', '٦'];
+const WEEK_HEIGHT = BANNER + ROW * LESSONS_PER_WEEK + 12;
+const NUMERALS = ['١', '٢', '٣', '٤', '٥', '٦', '٧'];
+
+/** Дорожка плавно идёт из стороны в сторону, экзамен стоит по центру */
+const offsetOf = (n: number) => (n === LESSONS_PER_WEEK ? 0 : Math.round(Math.sin((n - 1) * 0.65) * 76));
 
 type Tab = 'path' | 'practice' | 'profile';
 
@@ -32,16 +34,17 @@ function WeekBanner({ week }: { week: Week }) {
   );
 }
 
-function PathNode({ week, day, state, onPress }: { week: Week; day: number; state: LessonState; onPress: () => void }) {
+function PathNode({ week, n, state, onPress }: { week: Week; n: number; state: LessonState; onPress: () => void }) {
   const c = useColors();
-  const exam = day === DAYS_PER_WEEK;
-  const size = exam ? 84 : 72;
+  const exam = n === LESSONS_PER_WEEK;
+  const day = Math.ceil(n / LESSONS_PER_DAY);
+  const size = exam ? 84 : 70;
   const current = state === 'open' || state === 'tomorrow';
   const fill = state === 'done' ? c.gold : state === 'open' ? c.accent : state === 'tomorrow' ? c.muted : c.line;
   const ink = state === 'locked' ? c.muted : c.onAccent;
   return (
     <View style={{ height: ROW, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ transform: [{ translateX: OFFSETS[day - 1] }] }}>
+      <View style={{ transform: [{ translateX: offsetOf(n) }] }}>
         {current ? (
           <View style={{ position: 'absolute', top: -20, alignSelf: 'center', zIndex: 2, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line }}>
             <T size={12} weight="bold" tone={state === 'open' ? 'accent' : 'muted'}>{state === 'open' ? 'Начать' : 'Завтра'}</T>
@@ -49,9 +52,9 @@ function PathNode({ week, day, state, onPress }: { week: Week; day: number; stat
         ) : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Неделя ${week.n}, урок ${day}`}
+          accessibilityLabel={`Неделя ${week.n}, день ${day}, урок ${((n - 1) % LESSONS_PER_DAY) + 1}`}
           onPress={onPress}
-          testID={`node-${lessonId(week.n, day)}`}
+          testID={`node-${lessonId(week.n, n)}`}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
         >
           <Khatam size={size} fill={fill}>
@@ -75,8 +78,8 @@ function LessonSheet({ id, onClose, onTrain }: { id: string; onClose: () => void
   const canTrain = Object.keys(progress.done).length > 0;
   const copy = {
     done: 'Этот урок пройден. Можно повторить.',
-    open: lesson.isExam ? 'Покажите, чему научились за неделю.' : `Урок ${lesson.day} из ${DAYS_PER_WEEK} на этой неделе.`,
-    tomorrow: 'Сегодняшний урок пройден. Новый откроется завтра.',
+    open: lesson.isExam ? 'Покажите, чему научились за неделю.' : `День ${lesson.day}, урок ${lesson.slot} из ${LESSONS_PER_DAY}.`,
+    tomorrow: `Все ${LESSONS_PER_DAY} урока на сегодня пройдены. Новые откроются завтра.`,
     locked: 'Сначала пройдите предыдущие уроки.',
   }[state];
   return (
@@ -120,9 +123,9 @@ function PathTab() {
         renderItem={({ item: week }) => (
           <View style={{ height: WEEK_HEIGHT }}>
             <WeekBanner week={week} />
-            {Array.from({ length: DAYS_PER_WEEK }, (_, i) => {
+            {Array.from({ length: LESSONS_PER_WEEK }, (_, i) => {
               const id = lessonId(week.n, i + 1);
-              return <PathNode key={id} week={week} day={i + 1} state={lessonState(id)} onPress={() => setSheet(id)} />;
+              return <PathNode key={id} week={week} n={i + 1} state={lessonState(id)} onPress={() => setSheet(id)} />;
             })}
           </View>
         )}
@@ -192,7 +195,7 @@ function ProfileTab() {
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="profile-tab">
       <T size={26} weight="bold" style={{ lineHeight: 34 }}>{progress.name}</T>
       <View style={{ gap: 6 }}>
-        <T tone="muted" size={14}>Курс рассчитан на год: один урок в день</T>
+        <T tone="muted" size={14}>Курс рассчитан на год: {LESSONS_PER_DAY} урока в день</T>
         <ProgressBar value={doneCount} total={TOTAL_LESSONS} thick />
         <T size={13} tone="muted">Уроков пройдено: {doneCount} из {TOTAL_LESSONS}</T>
       </View>
@@ -227,7 +230,7 @@ function TabButton({ label, active, onPress, id }: { label: string; active: bool
 export default function Home() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { progress, isNewUser, liveStreak } = useProgress();
+  const { progress, isNewUser, liveStreak, todayCount } = useProgress();
   const [tab, setTab] = useState<Tab>('path');
 
   return (
@@ -237,6 +240,7 @@ export default function Home() {
           <T size={17} weight="bold" style={{ flex: 1, minWidth: 0 }} testID="greeting">
             {isNewUser ? `Добро пожаловать, ${progress.name}` : `С возвращением, ${progress.name}`}
           </T>
+          <T size={15} weight="bold" tone="accent" testID="today">{Math.min(todayCount, LESSONS_PER_DAY)}/{LESSONS_PER_DAY}</T>
           <T size={15} weight="bold" tone="bad" testID="streak">🔥 {liveStreak}</T>
           <T size={15} weight="bold" tone="gold" testID="stars">🌟 {progress.stars.length}</T>
         </View>

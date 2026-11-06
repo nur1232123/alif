@@ -14,13 +14,13 @@ function PreviewTools() {
   const c = useColors();
   const { progress, replaceProgress } = useProgress();
   const [week, setWeek] = useState('21');
-  const [day, setDay] = useState('1');
+  const [lesson, setLesson] = useState('1');
   const field = { flex: 1, minHeight: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 2, borderColor: c.line, color: c.ink, fontFamily: fonts.medium, fontSize: 16 };
   const open = () => {
     const w = Math.min(52, Math.max(1, Number(week) || 1));
-    const d = Math.min(7, Math.max(1, Number(day) || 1));
+    const n = Math.min(21, Math.max(1, Number(lesson) || 1));
     replaceProgress({ ...progress, unlocked: true });
-    router.push(`/lesson/${w}-${d}`);
+    router.push(`/lesson/${w}-${n}`);
   };
   return (
     <View style={{ gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: c.line }} testID="preview-tools">
@@ -32,8 +32,8 @@ function PreviewTools() {
           <TextInput accessibilityLabel="Неделя" inputMode="numeric" value={week} onChangeText={setWeek} style={field} testID="go-week" />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <T size={13} tone="muted">Урок (1–7)</T>
-          <TextInput accessibilityLabel="Урок" inputMode="numeric" value={day} onChangeText={setDay} style={field} testID="go-day" />
+          <T size={13} tone="muted">Урок (1–21)</T>
+          <TextInput accessibilityLabel="Урок" inputMode="numeric" value={lesson} onChangeText={setLesson} style={field} testID="go-day" />
         </View>
       </View>
       <Button kind="quiet" label="Открыть этот урок" onPress={open} testID="go-open" />
@@ -43,7 +43,7 @@ function PreviewTools() {
         onPress={() => replaceProgress({ ...progress, unlocked: !progress.unlocked })}
         testID="unlock-all"
       />
-      <Button kind="quiet" label="Следующий день" onPress={() => replaceProgress({ ...progress, lastLessonDay: null })} testID="next-day" />
+      <Button kind="quiet" label="Следующий день" onPress={() => replaceProgress({ ...progress, today: null })} testID="next-day" />
       <Button kind="quiet" label="Начать с экрана имени" onPress={() => replaceProgress(EMPTY)} testID="reset" />
     </View>
   );
