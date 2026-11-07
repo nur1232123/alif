@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ALL_WEEKS } from '@/data/course';
 import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK } from './plan';
 
-const KEY = 'alif.progress.v4';
+const KEY = 'alif.progress.v5';
 
 export type Progress = {
   name: string | null;
@@ -25,7 +25,7 @@ export type Progress = {
   unlocked?: boolean;
 };
 
-export type Settings = { sounds: boolean; reminder: boolean; reminderHour: number };
+export type Settings = { sounds: boolean; reminder: boolean; reminderHour: number; dailyGoal: number };
 
 /** Через сколько дней повторять элемент на каждой ступени */
 export const SRS_DAYS = [0, 1, 3, 7, 16, 35];
@@ -39,7 +39,7 @@ export const EMPTY: Progress = {
   streak: 0,
   mistakes: {},
   srs: {},
-  settings: { sounds: true, reminder: false, reminderHour: 19 },
+  settings: { sounds: true, reminder: false, reminderHour: 19, dailyGoal: LESSONS_PER_DAY },
 };
 
 export function dayKey(date: Date) {
@@ -67,7 +67,7 @@ function nextStreak(p: Progress) {
   return p.lastActive === yesterday() ? p.streak + 1 : 1;
 }
 
-export type LessonState = 'done' | 'open' | 'tomorrow' | 'locked';
+export type LessonState = 'done' | 'open' | 'locked';
 export type FinishResult = { stageStar: number | null; courseDone: boolean; firstTime: boolean; todayCount: number };
 
 type Ctx = {
@@ -208,10 +208,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     (id: string): LessonState => {
       if (id in progress.done) return 'done';
       if (progress.unlocked) return 'open';
-      if (id !== currentLessonId) return 'locked';
-      return todayCount >= LESSONS_PER_DAY ? 'tomorrow' : 'open';
+      // Уроки не закрываются по времени: цель дня только подсказывает, когда отдохнуть
+      return id === currentLessonId ? 'open' : 'locked';
     },
-    [progress, currentLessonId, todayCount],
+    [progress, currentLessonId],
   );
 
   const liveStreak = progress.lastActive === today() || progress.lastActive === yesterday() ? progress.streak : 0;

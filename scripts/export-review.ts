@@ -13,15 +13,16 @@ const push = (r: Row) => {
 };
 
 // Добавлено 7 ноября: слоги с новыми id и 13 новых недель
-const NEW_PREFIX = /^(s-|w6\d-|w7[0-2]-)/;
+const NEW_PREFIX = /^(s-|w6\d-|w7[0-4]-)/;
 
 for (const week of ALL_WEEKS) {
-  const newWeek = week.items.some((x) => /^w(6[0-9]|7[0-2])-/.test(x.id));
+  const newWeek = week.items.some((x) => /^w(6[0-9]|7[0-4])-/.test(x.id));
   const base = { stage: week.stageId, week: week.n, title: week.title, ...(newWeek ? { isNew: true } : {}) };
   if (week.kind === 'letters' && week.review) continue; // повтор всего алфавита
   for (const item of week.items) {
     if (week.kind === 'letters') {
       push({ ...base, id: item.id, kind: 'Буква', ar: `${item.ar}  ${item.say}`, ru: item.ru, note: item.note });
+      if (item.example) push({ ...base, id: `${item.id}-ex`, kind: 'Слово-пример', ar: item.example.ar, ru: item.example.ru, isNew: true });
     } else {
       push({ ...base, id: item.id, kind: week.kind === 'syllables' ? 'Слог' : 'Слово', ar: item.ar, ru: item.ru, note: item.note, ...(NEW_PREFIX.test(item.id) ? { isNew: true } : {}) });
     }

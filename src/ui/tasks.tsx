@@ -74,6 +74,22 @@ export function useIntro(task: IntroTask, onDone: () => void): Slots {
           <ListenButton text={item.say} testID="listen" />
         </View>
         {item.note ? <T tone="muted" style={{ textAlign: 'center' }}>{item.note}</T> : null}
+        {item.example ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Слушать слово: ${item.example.ru}`}
+            onPress={() => say(item.example!.ar)}
+            testID="example"
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 14, backgroundColor: c.soft, opacity: pressed ? 0.75 : 1 })}
+          >
+            <PlayGlyph color={c.accent} size={11} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T size={12} tone="muted">Слово на эту букву</T>
+              <T weight="medium">{item.example.ru}</T>
+            </View>
+            <Ar size={30} style={{ lineHeight: 48 }}>{item.example.ar}</Ar>
+          </Pressable>
+        ) : null}
         {item.forms ? (
           <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
             {item.forms.map((form) => (
@@ -151,6 +167,7 @@ const HEADINGS: Record<ChoiceTask['kind'], string> = {
   meaning: 'Что это значит?',
   reverse: 'Выберите по-арабски',
   form: 'Какая это буква?',
+  'first-letter': 'С какой буквы начинается слово?',
   text: 'Выберите правильный ответ',
   reply: 'Что ответить?',
 };

@@ -12,6 +12,8 @@ export type Item = {
   family?: string;
   /** Формы буквы в слове */
   forms?: { label: string; ar: string }[];
+  /** Слово, которое начинается с этой буквы */
+  example?: { ar: string; ru: string };
 };
 
 export type Line = { who?: 'А' | 'Б'; ar: string; ru: string };

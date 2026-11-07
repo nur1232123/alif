@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
-import { buildLesson, buildPractice, getLesson, isGraded, LESSONS_PER_DAY, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
+import { buildLesson, buildPractice, getLesson, isGraded, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
 import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
 import { voiceEnabled } from '@/lib/voice';
@@ -111,11 +111,17 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
 
   const star = result?.stageStar ? getStage(result.stageStar) : null;
   const count = result?.todayCount ?? 0;
-  const left = LESSONS_PER_DAY - count;
+  const goal = progress.settings.dailyGoal;
+  const left = goal - count;
   const canContinue = !result?.courseDone && currentLessonId !== null && lessonState(currentLessonId) === 'open';
   const moreToday = !!result?.firstTime && left > 0 && canContinue;
+  const goalReached = !!result?.firstTime && count === goal;
   let heading = `На сегодня всё, ${name}`;
-  let line = 'Давай потренируемся на том, чему научились. Новые уроки откроются завтра.';
+  let line = 'Цель дня выполнена. Давай потренируемся на том, чему научились, или пройди ещё урок.';
+  if (!goalReached && !moreToday && result?.firstTime) {
+    heading = `Ещё один урок, ${name}`;
+    line = 'Отлично идёте. Не забывайте отдыхать: так буквы и слова лучше запоминаются.';
+  }
   if (result?.courseDone) {
     heading = `Вы прошли весь курс, ${name}`;
     line = 'Целый год занятий позади. Тренировка всегда открыта.';
@@ -123,7 +129,7 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
     heading = `Урок повторён, ${name}`;
     line = 'Хорошо, что вы вернулись к этому уроку.';
   } else if (moreToday) {
-    heading = `Урок ${count} из ${LESSONS_PER_DAY} пройден`;
+    heading = `Урок ${count} из ${goal} пройден`;
     line = left === 1 ? 'Сегодня остался ещё один урок.' : `Сегодня осталось ещё уроков: ${left}.`;
   }
 
@@ -131,15 +137,18 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
     <Screen
       footer={
         <>
-          {moreToday ? (
+          {moreToday || (!goalReached && canContinue) ? (
             <Button label="Следующий урок" onPress={() => router.replace(`/lesson/${currentLessonId}`)} testID="next-lesson" />
           ) : (
-            <Button label="Давай потренируемся" onPress={() => router.replace('/lesson/practice')} testID="practice-now" />
+            <>
+              <Button label="Давай потренируемся" onPress={() => router.replace('/lesson/practice')} testID="practice-now" />
+              {canContinue ? <Button label="Ещё урок" kind="quiet" onPress={() => router.replace(`/lesson/${currentLessonId}`)} testID="more-lesson" /> : null}
+            </>
           )}
           <Button label="На главную" kind="quiet" onPress={() => router.replace('/')} testID="finish" />
         </>
       }
-      testID={star ? 'result-star' : moreToday ? 'result-next' : 'result-rest'}
+      testID={star ? 'result-star' : moreToday || (!goalReached && canContinue && !!result?.firstTime) ? 'result-next' : 'result-rest'}
     >
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 }}>
         {star ? (
@@ -282,6 +291,6 @@ export default function LessonScreen() {
   if (!lesson) return <Redirect href="/" />;
   const state = lessonState(lesson.id);
   // Экран результата показывается уже после записи урока, поэтому 'done' тоже разрешён
-  if (state === 'locked' || state === 'tomorrow') return <Redirect href="/" />;
+  if (state === 'locked') return <Redirect href="/" />;
   return <Runner key={lesson.id} lesson={lesson} />;
 }

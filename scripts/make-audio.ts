@@ -27,7 +27,10 @@ if (!KEY || (!REGION && !process.env.AZURE_TTS_URL)) {
 /** Все фразы, которые приложение может произнести */
 function collect(): string[] {
   const texts = new Set<string>();
-  LETTERS.forEach((l) => texts.add(l.say));
+  LETTERS.forEach((l) => {
+    texts.add(l.say);
+    if (l.example) texts.add(l.example.ar);
+  });
   for (const week of ALL_WEEKS) {
     week.items.forEach((x) => texts.add(x.say));
     week.lines?.forEach((l) => texts.add(l.ar));
