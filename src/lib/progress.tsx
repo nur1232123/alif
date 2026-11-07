@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ALL_WEEKS } from '@/data/course';
 import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK } from './plan';
 
-const KEY = 'alif.progress.v3';
+const KEY = 'alif.progress.v4';
 
 export type Progress = {
   name: string | null;

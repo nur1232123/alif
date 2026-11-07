@@ -55,13 +55,60 @@ export function lessonId(week: number, n: number) {
 /** Первый урок дня: на нём появляется новый материал */
 const firstOfDay = (day: number) => (day - 1) * LESSONS_PER_DAY + 1;
 
-const DAY_TITLES: Record<Week['kind'], string[]> = {
-  letters: ['Новые буквы', 'Ещё буквы', 'Слушаем', 'Узнаём', 'Формы букв', 'Повторение'],
-  syllables: ['Новые слоги', 'Ещё слоги', 'Слушаем', 'Читаем', 'Сравниваем', 'Повторение'],
-  words: ['Новые слова', 'Ещё слова', 'Слушаем', 'Значения', 'Собираем слова', 'Повторение'],
+const READING_TITLES: Record<'text' | 'dialogue', string[]> = {
   text: ['Новые слова', 'Читаем текст', 'Вопросы к тексту', 'Слушаем текст', 'Собираем предложения', 'Повторение'],
   dialogue: ['Новые слова', 'Читаем диалог', 'Выбираем ответ', 'Слушаем диалог', 'Собираем реплики', 'Повторение'],
 };
+
+/** Не больше стольких новых элементов в один день */
+const NEW_PER_DAY = 4;
+const INTRO_DAYS_MAX = 5;
+
+/** Новый материал недели делится на части: по одной части в первые дни недели */
+export function introChunks(week: Week): Item[][] {
+  if (week.review) return [];
+  if (week.kind === 'text' || week.kind === 'dialogue') return [week.items];
+  const n = week.items.length;
+  const days = Math.min(INTRO_DAYS_MAX, Math.max(2, Math.ceil(n / NEW_PER_DAY)));
+  return Array.from({ length: days }, (_, d) => week.items.slice(Math.round((d * n) / days), Math.round(((d + 1) * n) / days)));
+}
+
+type DayKind = 'intro' | 'listen' | 'meanings' | 'forms' | 'build' | 'mixed';
+
+/** Что делаем в дни 1–6 недели с карточками: сначала новое, потом закрепляем разными заданиями */
+function dayKinds(week: Week): DayKind[] {
+  const intro = introChunks(week).length;
+  const extra: DayKind[] =
+    week.kind === 'letters'
+      ? ['forms', 'listen', 'meanings']
+      : week.kind === 'syllables'
+        ? ['listen', 'meanings', 'build']
+        : ['build', 'listen', 'meanings'];
+  const between = Math.max(0, 6 - intro - 1);
+  const plan: DayKind[] = [...Array<DayKind>(intro).fill('intro'), ...extra.slice(0, between), 'mixed'];
+  return plan.slice(0, 6);
+}
+
+const NOUN: Record<'letters' | 'syllables' | 'words', [string, string]> = {
+  letters: ['Новые буквы', 'Ещё буквы'],
+  syllables: ['Новые слоги', 'Ещё слоги'],
+  words: ['Новые слова', 'Ещё слова'],
+};
+
+function dayTitle(week: Week, day: number) {
+  if (week.kind === 'text' || week.kind === 'dialogue') return READING_TITLES[week.kind][day - 1];
+  const kind = dayKinds(week)[day - 1];
+  const group = week.kind as 'letters' | 'syllables' | 'words';
+  const titles: Record<DayKind, string> = {
+    intro: day === 1 ? NOUN[group][0] : NOUN[group][1],
+    listen: 'Слушаем',
+    meanings: group === 'words' ? 'Значения' : 'Узнаём',
+    forms: 'Формы букв',
+    build: group === 'words' ? 'Собираем слова' : 'Сравниваем',
+    mixed: 'Повторение недели',
+  };
+  return titles[kind];
+}
 const REVIEW_TITLES = ['Формы и звуки', 'Похожие буквы', 'Слушаем', 'Узнаём', 'Смешанный урок', 'Повторение'];
 
 export function examTitle(week: Week) {
@@ -72,9 +119,8 @@ function makeRef(week: Week, n: number): LessonRef {
   const day = Math.ceil(n / LESSONS_PER_DAY);
   const slot = ((n - 1) % LESSONS_PER_DAY) + 1;
   const isExam = n === LESSONS_PER_WEEK;
-  const titles = week.review ? REVIEW_TITLES : DAY_TITLES[week.kind];
   let title = slot === 2 ? 'Закрепление' : 'Повторение';
-  if (slot === 1) title = day === DAYS_PER_WEEK ? 'Подготовка к экзамену' : titles[day - 1];
+  if (slot === 1) title = day === DAYS_PER_WEEK ? 'Подготовка к экзамену' : week.review ? REVIEW_TITLES[day - 1] : dayTitle(week, day);
   if (day === DAYS_PER_WEEK && slot === 2) title = 'Последнее повторение';
   if (isExam) title = examTitle(week);
   return { id: lessonId(week.n, n), week, n, day, slot, isExam, title };
@@ -288,9 +334,6 @@ function examTasks(week: Week, random: () => number, voice: boolean): Task[] {
 function cardDay(ref: LessonRef, random: () => number): Task[] {
   const { week, day } = ref;
   const pool = poolFor(week);
-  const half = Math.ceil(week.items.length / 2);
-  const first = week.items.slice(0, half);
-  const second = week.items.slice(half);
   const kinds = kindsFor(week);
 
   if (week.review) {
@@ -303,23 +346,29 @@ function cardDay(ref: LessonRef, random: () => number): Task[] {
     return [matchTask(sample, random, 'm1'), ...itemTasks(sample, pool, kinds, LESSON_SIZE - 1, random)];
   }
 
-  switch (day) {
-    case 1:
-      return introThenPractice(first, pool, week, random);
-    case 2:
-      return [...introThenPractice(second, pool, week, random), matchTask(week.items, random, 'm1')];
-    case 3:
+  const chunks = introChunks(week);
+  switch (dayKinds(week)[day - 1]) {
+    case 'intro': {
+      const tasks = introThenPractice(chunks[day - 1], pool, week, random);
+      // Со второго дня новое смешивается с уже знакомым
+      const seen = chunks.slice(0, day).flat();
+      return day > 1 && seen.length >= 4 ? [...tasks, matchTask(seen, random, 'm1')] : tasks;
+    }
+    case 'listen':
       return itemTasks(week.items, pool, ['hear-see', 'see-hear'], LESSON_SIZE, random);
-    case 4:
+    case 'meanings':
       return [
         matchTask(week.items, random, 'm1'),
         ...itemTasks(week.items, pool, group(week) === 'words' ? ['meaning', 'reverse'] : ['see-hear', 'hear-see'], LESSON_SIZE - 1, random),
       ];
-    case 5: {
-      if (week.kind === 'letters') return itemTasks(week.items.filter(hasForms).concat(week.items), pool, ['form'], LESSON_SIZE, random);
+    case 'forms':
+      return itemTasks(week.items.filter(hasForms), pool, ['form'], LESSON_SIZE, random);
+    case 'build': {
       const texts = pool.map((x) => x.ar);
-      const builds = shuffled(week.items.filter((x) => canBuild(x.ar)), random).map((x, i) => build(x.ar, x.ru, texts, i, random, x.id));
-      return [...builds, ...itemTasks(week.items, pool, kinds, Math.max(3, LESSON_SIZE - builds.length), random, builds.length)];
+      const builds = shuffled(week.items.filter((x) => canBuild(x.ar)), random)
+        .slice(0, 5)
+        .map((x, i) => build(x.ar, x.ru, texts, i, random, x.id));
+      return [...builds, ...itemTasks(week.items, pool, kinds, Math.max(4, LESSON_SIZE - builds.length), random, builds.length)];
     }
     default: {
       const recent = shuffled(recentItems(week), random).slice(0, 5);
@@ -366,8 +415,9 @@ function readingDay(ref: LessonRef, random: () => number): Task[] {
 /** Дополнительные уроки дня: без нового материала, только то, что ученик уже видел */
 function seenItems(ref: LessonRef): Item[] {
   const { week, day } = ref;
-  if (week.review) return week.items;
-  return day === 1 ? week.items.slice(0, Math.ceil(week.items.length / 2)) : week.items;
+  const chunks = introChunks(week);
+  if (week.review || day > chunks.length) return week.items;
+  return chunks.slice(0, day).flat();
 }
 
 function practiceDay(ref: LessonRef, random: () => number): Task[] {
@@ -416,13 +466,19 @@ export function buildLesson(ref: LessonRef, random = Math.random, voice = false)
   return body;
 }
 
-/** Что ученик уже видел: первая половина недели после урока 1, вся неделя после урока 2 */
+/** Что ученик уже видел: каждая пройденная первая лекция дня открывает свою часть недели */
 export function knownItems(done: Record<string, unknown>): Item[] {
   const known: Item[] = [];
   for (const week of ALL_WEEKS) {
-    const half = Math.ceil(week.items.length / 2);
-    if (lessonId(week.n, firstOfDay(2)) in done) known.push(...week.items);
-    else if (lessonId(week.n, firstOfDay(1)) in done) known.push(...week.items.slice(0, week.review ? week.items.length : half));
+    if (!(lessonId(week.n, firstOfDay(1)) in done)) continue;
+    const chunks = introChunks(week);
+    if (week.review || chunks.length <= 1) {
+      known.push(...week.items);
+      continue;
+    }
+    let days = 0;
+    while (days < chunks.length && lessonId(week.n, firstOfDay(days + 1)) in done) days += 1;
+    known.push(...chunks.slice(0, days).flat());
   }
   return uniqueBy(known, (x) => x.ar);
 }

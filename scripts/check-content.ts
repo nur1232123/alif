@@ -7,6 +7,7 @@ import {
   buildPractice,
   LESSONS_PER_DAY,
   LESSONS_PER_WEEK,
+  introChunks,
   isGraded,
   knownItems,
   lessonId,
@@ -43,10 +44,18 @@ if (new Set(LETTERS.map((l) => l.ar)).size !== 28) bad('повторяются �
 if (new Set(LETTERS.map((l) => l.ru)).size !== 28) bad('повторяются русские названия букв');
 for (const l of LETTERS) checkVowels(l.say, `буква ${l.ar}`);
 
-// Первая половина алфавита заканчивается на 4-й неделе, вторая на 8-й
+// Алфавит: первая половина за 1-ю неделю, вторая за 2-ю, 3-я неделя — повторение
 const seen = (to: number) => new Set(ALL_WEEKS.filter((w) => w.n <= to).flatMap((w) => w.items.map((x) => x.ar)));
-if (seen(4).size !== 14) bad(`к 4-й неделе букв ${seen(4).size}`);
-if (seen(8).size !== 28) bad(`к 8-й неделе букв ${seen(8).size}`);
+if (seen(1).size !== 14) bad(`к 1-й неделе букв ${seen(1).size}`);
+if (seen(2).size !== 28) bad(`ко 2-й неделе букв ${seen(2).size}`);
+if (ALL_WEEKS.filter((w) => w.stageId === 1).length !== 3) bad('алфавит не 3 недели');
+// Новое каждый день понемногу
+for (const week of ALL_WEEKS) {
+  for (const chunk of introChunks(week)) {
+    if (week.kind !== 'text' && week.kind !== 'dialogue' && chunk.length > 5) bad(`неделя ${week.n}: ${chunk.length} новых за день`);
+  }
+  if (!week.review && introChunks(week).flat().length !== week.items.length) bad(`неделя ${week.n}: не все элементы вводятся`);
+}
 
 const ids = new Map<string, Item>();
 const newPerWeek: number[] = [];
@@ -138,15 +147,15 @@ for (const ref of ALL_LESSONS) {
 const firstLesson = buildLesson(ALL_LESSONS[0]);
 if (firstLesson[0].type !== 'tip') bad('первый урок начинается не с правила');
 const firstIntro = firstLesson.filter((t) => t.type === 'intro').length;
-if (firstIntro > 2) bad(`в первом уроке новых букв ${firstIntro}`);
+if (firstIntro > 4) bad(`в первом уроке новых букв ${firstIntro}`);
 
 // Тренировка отдаёт ошибки первыми
 const done = { [lessonId(1, 1)]: 1, [lessonId(1, 4)]: 1 };
 const items = knownItems(done);
-if (items.length !== 4) bad(`после двух уроков известно ${items.length}`);
+if (items.length !== 7) bad(`после двух дней известно ${items.length}`);
 for (let run = 0; run < 100; run++) {
   const practice = buildPractice(done, { [items[2].id]: 2 });
-  if (practice.length !== 4) bad(`тренировка: ${practice.length} заданий`);
+  if (practice.length !== 7) bad(`тренировка: ${practice.length} заданий`);
   const first = practice[0];
   if (first.type !== 'choice' || first.itemId !== items[2].id) bad('тренировка: ошибка не первая');
   practice.forEach((t) => checkTask(t, 'тренировка'));
