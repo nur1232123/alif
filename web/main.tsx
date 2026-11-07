@@ -5,6 +5,7 @@ import Home from '@/app/index';
 import LessonScreen from '@/app/lesson/[id]';
 import Welcome from '@/app/welcome';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
+import { setSfxEnabled } from '@/lib/sfx';
 import { Button, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 import { ParamsContext, router, usePath } from './shims/router';
@@ -55,6 +56,7 @@ function Routes() {
   const c = useColors();
   const { ready, progress } = useProgress();
   const path = usePath();
+  setSfxEnabled(progress.settings.sounds);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   if (!progress.name || path === '/welcome') return <Welcome key={path} />;

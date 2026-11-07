@@ -3,17 +3,24 @@ import { GolosText_500Medium } from '@expo-google-fonts/golos-text/500Medium';
 import { GolosText_700Bold } from '@expo-google-fonts/golos-text/700Bold';
 import { ScheherazadeNew_400Regular } from '@expo-google-fonts/scheherazade-new/400Regular';
 import { ScheherazadeNew_700Bold } from '@expo-google-fonts/scheherazade-new/700Bold';
+import { setAudioModeAsync } from 'expo-audio';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProgressProvider, useProgress } from '@/lib/progress';
+import { setSfxEnabled } from '@/lib/sfx';
 import { useColors } from '@/ui/theme';
 
 function Routes() {
   const c = useColors();
   const { ready, progress } = useProgress();
+
+  useEffect(() => {
+    setSfxEnabled(progress.settings.sounds);
+  }, [progress.settings.sounds]);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
 
@@ -36,6 +43,11 @@ function Routes() {
 
 export default function RootLayout() {
   const c = useColors();
+
+  useEffect(() => {
+    // Звук слышен и на iPhone в беззвучном режиме
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
   const [loaded, failed] = useFonts({
     GolosText_400Regular,
     GolosText_500Medium,

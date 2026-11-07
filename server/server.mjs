@@ -1,4 +1,4 @@
-// Сервер проверки произношения. Ключ сервиса хранится здесь, а не в приложении.
+// Сервер проверки произношения через бесплатное распознавание речи Azure. Ключ сервиса хранится здесь, а не в приложении.
 // Запуск: node server/server.mjs  Настройки: см. server/README.md
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -8,12 +8,16 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const PORT = Number(process.env.PORT ?? 8787);
-const AZURE_ENDPOINT = process.env.AZURE_ENDPOINT ?? ''; // https://имя.cognitiveservices.azure.com
+const AZURE_REGION = process.env.AZURE_REGION ?? ''; // например westeurope
+// Адрес можно задать целиком: нужно для тестов и для ресурсов с собственным именем
+const STT_URL =
+  process.env.AZURE_STT_URL ??
+  `https://${AZURE_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`;
 const AZURE_KEY = process.env.AZURE_KEY ?? '';
 const APP_TOKEN = process.env.APP_TOKEN ?? '';
 const LANGUAGE = process.env.SPEECH_LANGUAGE ?? 'ar-SA';
-// Порог «правильно» от 0 до 100. Настраивается по реальным записям.
-const PASS_SCORE = Number(process.env.PASS_SCORE ?? 70);
+// Порог «правильно» от 0 до 100: насколько услышанное похоже на ожидаемое
+const PASS_SCORE = Number(process.env.PASS_SCORE ?? 75);
 const MAX_BODY = 2 * 1024 * 1024;
 const MAX_PER_MINUTE = 30;
 
@@ -88,28 +92,71 @@ async function toWav(audio) {
   }
 }
 
-async function assess(wav, expected) {
-  const params = { ReferenceText: expected, GradingSystem: 'HundredMark', Granularity: 'Word', Dimension: 'Comprehensive', EnableMiscue: true };
-  const url = `${AZURE_ENDPOINT}/stt/speech/recognition/conversation/cognitiveservices/v1?language=${LANGUAGE}&format=detailed`;
-  const response = await fetch(url, {
+const HARAKAT = /[\u064B-\u065F\u0670\u0640]/g;
+
+/** Убирает огласовки и знаки, приводит похожие написания к одному виду */
+export function normalize(text) {
+  return text
+    .replace(HARAKAT, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[^\u0621-\u064A\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Мягкая форма: без хамзы и повторов, «باء» и «با» считаются одинаковыми */
+function loose(text) {
+  return normalize(text).replace(/[ءئؤ]/g, '').replace(/(.)\1+/g, '$1').replace(/\s/g, '');
+}
+
+function distance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const temp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = temp;
+    }
+  }
+  return row[b.length];
+}
+
+/** Похожесть от 0 до 100 */
+export function similarity(heard, expected) {
+  const a = loose(heard);
+  const b = loose(expected);
+  if (!a || !b) return 0;
+  return Math.round((1 - distance(a, b) / Math.max(a.length, b.length)) * 100);
+}
+
+/** Бесплатное распознавание речи: узнаём, что сказал ученик, и сравниваем с ожидаемым */
+async function assess(wav, expected, alternatives) {
+  const response = await fetch(`${STT_URL}?language=${LANGUAGE}&format=detailed`, {
     method: 'POST',
     headers: {
       'Ocp-Apim-Subscription-Key': AZURE_KEY,
       'Content-Type': 'audio/wav; codecs=audio/pcm; samplerate=16000',
       Accept: 'application/json',
-      'Pronunciation-Assessment': Buffer.from(JSON.stringify(params), 'utf8').toString('base64'),
     },
     body: wav,
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new Error(`Azure ${response.status}: ${(await response.text()).slice(0, 300)}`);
   const data = await response.json();
-  if (data.RecognitionStatus === 'NoMatch' || data.RecognitionStatus === 'InitialSilenceTimeout') return { status: 'silent' };
-  const best = data.NBest?.[0];
-  if (data.RecognitionStatus !== 'Success' || !best) throw new Error(`Azure status ${data.RecognitionStatus}`);
-  const score = Math.round(best.AccuracyScore ?? 0);
-  const complete = (best.CompletenessScore ?? 100) >= 100 || (best.Words ?? []).every((w) => w.ErrorType !== 'Omission');
-  return { status: 'checked', correct: score >= PASS_SCORE && complete, score };
+  if (['NoMatch', 'InitialSilenceTimeout', 'BabbleTimeout'].includes(data.RecognitionStatus)) return { status: 'silent' };
+  if (data.RecognitionStatus !== 'Success') throw new Error(`Azure status ${data.RecognitionStatus}`);
+  const heardOptions = (data.NBest ?? []).flatMap((n) => [n.Lexical, n.Display]).filter(Boolean);
+  if (data.DisplayText) heardOptions.push(data.DisplayText);
+  if (heardOptions.every((h) => !normalize(h))) return { status: 'silent' };
+  const targets = [expected, ...alternatives];
+  let score = 0;
+  for (const heard of heardOptions) for (const target of targets) score = Math.max(score, similarity(heard, target));
+  const heard = data.NBest?.[0]?.Display ?? data.DisplayText ?? '';
+  return { status: 'checked', correct: score >= PASS_SCORE, score, heard };
 }
 
 function send(res, code, body) {
@@ -126,8 +173,9 @@ const server = createServer(async (req, res) => {
   try {
     const form = parseForm(await readBody(req), req.headers['content-type']);
     const expected = form?.expected?.toString('utf8').trim();
+    const alternatives = (form?.alt?.toString('utf8') ?? '').split('|').map((x) => x.trim()).filter(Boolean).slice(0, 4);
     if (!form?.audio?.length || !expected || expected.length > 80) return send(res, 400, { error: 'bad request' });
-    send(res, 200, await assess(await toWav(form.audio), expected));
+    send(res, 200, await assess(await toWav(form.audio), expected, alternatives));
   } catch (error) {
     if (error.code === 413) return send(res, 413, { error: 'too large' });
     console.error(error.message);
@@ -135,4 +183,11 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Сервер проверки слушает порт ${PORT}`));
+// Сервер запускается, только когда файл запущен напрямую, а не импортирован в тест
+if (import.meta.url === `file://${process.argv[1]}`) {
+  if (!AZURE_KEY || (!AZURE_REGION && !process.env.AZURE_STT_URL)) {
+    console.error('Укажите AZURE_KEY и AZURE_REGION. Подробности в server/README.md');
+    process.exit(1);
+  }
+  server.listen(PORT, () => console.log(`Сервер проверки слушает порт ${PORT}`));
+}

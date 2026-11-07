@@ -1,35 +1,42 @@
 # Сервер проверки произношения
 
-Приложение отправляет сюда запись, сервер переводит её в нужный формат и спрашивает Azure Speech.
+Приложение отправляет сюда запись. Сервер распознаёт речь бесплатным тарифом Azure Speech
+(5 часов в месяц) и сравнивает услышанное с правильным ответом.
 Ключ Azure хранится только здесь. Его нельзя класть в приложение.
 
 ## Настройки
 
 | Переменная | Что это |
 |---|---|
-| `AZURE_ENDPOINT` | Адрес ресурса Speech, например `https://alif.cognitiveservices.azure.com` |
 | `AZURE_KEY` | Ключ ресурса Speech |
+| `AZURE_REGION` | Регион ресурса, например `westeurope` |
 | `APP_TOKEN` | Любая длинная строка. Такая же нужна в `EXPO_PUBLIC_VOICE_TOKEN` |
 | `SPEECH_LANGUAGE` | Язык, по умолчанию `ar-SA` |
-| `PASS_SCORE` | Порог «правильно» от 0 до 100, по умолчанию 70 |
+| `PASS_SCORE` | Насколько услышанное должно совпадать с ответом, от 0 до 100. По умолчанию 75 |
 
 ## Запуск на компьютере
 
 Нужны Node.js 22 и ffmpeg.
 
-```
-AZURE_ENDPOINT=... AZURE_KEY=... APP_TOKEN=... node server/server.mjs
-```
-
-В Windows PowerShell:
+Windows PowerShell:
 
 ```
-$env:AZURE_ENDPOINT="..."; $env:AZURE_KEY="..."; $env:APP_TOKEN="..."; node server/server.mjs
+$env:AZURE_KEY="..."; $env:AZURE_REGION="westeurope"; $env:APP_TOKEN="..."; node server/server.mjs
 ```
 
-## Запуск в облаке
+macOS и Linux:
 
-В папке есть `Dockerfile`, он подходит для сервисов, которые запускают контейнеры.
+```
+AZURE_KEY=... AZURE_REGION=westeurope APP_TOKEN=... node server/server.mjs
+```
+
+Телефон с Expo Go должен быть в той же сети Wi-Fi. В `.env` приложения укажите адрес компьютера,
+например `EXPO_PUBLIC_VOICE_URL=http://192.168.1.10:8787`.
+
+## Для App Store
+
+iPhone принимает только адреса `https`. Перед выпуском запустите сервер в облаке
+(в папке есть `Dockerfile`) и укажите его адрес `https://...` в `EXPO_PUBLIC_VOICE_URL`.
 
 ## Проверка без Azure
 

@@ -7,8 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "app.alifarabic.mobile"
+      "supportsTablet": false,
+      "bundleIdentifier": "app.alifarabic.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +42,7 @@
     "scheme": "alif",
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "description": "Курс арабского языка на год: от букв до разговора."
   }
 }

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
 import { buildLesson, buildPractice, getLesson, isGraded, LESSONS_PER_DAY, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
-import { useProgress, type FinishResult } from '@/lib/progress';
+import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
 import { voiceEnabled } from '@/lib/voice';
 import { Button, Khatam, ProgressBar, Screen, T } from '@/ui/kit';
@@ -167,7 +167,7 @@ function Runner({ lesson }: { lesson: LessonRef | null }) {
   const { progress, finishLesson, finishPractice, recordAnswer } = useProgress();
   const [attempt, setAttempt] = useState(0);
   const initial = useMemo<Task[]>(
-    () => (lesson ? buildLesson(lesson, Math.random, voiceEnabled) : buildPractice(progress.done, progress.mistakes)),
+    () => (lesson ? buildLesson(lesson, Math.random, voiceEnabled) : buildPractice(progress.done, progress.mistakes, 10, Math.random, progress.srs, dayKey(new Date()))),
     // Задания выбираются один раз на попытку и не меняются от новых ответов
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lesson?.id, attempt],

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { BuildTask, ChoiceTask, IntroTask, MatchTask, Option, ReadTask, TipTask } from '@/lib/plan';
+import { playSfx } from '@/lib/sfx';
 import { say, sayAll } from '@/lib/speech';
 import { Ar, Button, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
 import { fonts, useColors } from './theme';
@@ -18,6 +19,9 @@ function Feedback({ correct, explainAr, explainRu, onNext, label }: {
   label: string;
 }) {
   const c = useColors();
+  useEffect(() => {
+    playSfx(correct ? 'right' : 'wrong');
+  }, [correct]);
   return (
     <View
       style={{ gap: 10, marginHorizontal: -20, marginBottom: -16, marginTop: -12, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16, backgroundColor: correct ? c.goodSoft : c.badSoft }}

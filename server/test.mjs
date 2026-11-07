@@ -5,6 +5,20 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { normalize, similarity } from './server.mjs';
+
+// Сравнение слов
+assert.equal(normalize('بَاءٌ'), 'باء');
+assert.equal(normalize('أَنَا'), 'انا');
+assert.ok(similarity('باء', 'بَاء') === 100);
+assert.ok(similarity('با', 'بَاء') === 100, 'без хамзы тоже правильно');
+assert.ok(similarity('ساد', 'صَاد') < 75, 'с и ص разные');
+assert.ok(similarity('تاء', 'طَاء') < 75, 'т и ط разные');
+assert.ok(similarity('ها', 'حَاء') < 75, 'ه и ح разные');
+assert.ok(similarity('مدرسه', 'الْمَدْرَسَةُ') < 100);
+assert.ok(similarity('السلام عليكم', 'السَّلَامُ عَلَيْكُمْ') === 100, 'фраза');
+assert.ok(similarity('', 'بَاء') === 0);
+
 
 const dir = mkdtempSync(path.join(tmpdir(), 'alif-test-'));
 const m4a = path.join(dir, 'a.m4a');
@@ -25,40 +39,52 @@ const azure = createServer((req, res) => {
 await new Promise((r) => azure.listen(9791, r));
 
 const app = spawn('node', ['server/server.mjs'], {
-  env: { ...process.env, PORT: '9792', AZURE_ENDPOINT: 'http://127.0.0.1:9791', AZURE_KEY: 'test-key', APP_TOKEN: 'tok', PASS_SCORE: '70' },
+  env: { ...process.env, PORT: '9792', AZURE_STT_URL: 'http://127.0.0.1:9791/stt', AZURE_KEY: 'test-key', APP_TOKEN: 'tok' },
   stdio: 'inherit',
 });
 await new Promise((r) => setTimeout(r, 500));
 
-const post = (expected, { token = 'tok', file = audio } = {}) => {
+const post = (expected, { token = 'tok', file = audio, alt } = {}) => {
   const form = new FormData();
   form.append('expected', expected);
+  if (alt) form.append('alt', alt);
   form.append('audio', new Blob([file], { type: 'audio/mp4' }), 'voice.m4a');
   return fetch('http://127.0.0.1:9792/check', { method: 'POST', headers: { 'x-app-token': token }, body: form });
 };
 
 try {
-  reply = { body: { RecognitionStatus: 'Success', NBest: [{ AccuracyScore: 92, CompletenessScore: 100, Words: [{ ErrorType: 'None' }] }] } };
+  reply = { body: { RecognitionStatus: 'Success', DisplayText: 'باء.', NBest: [{ Lexical: 'باء', Display: 'باء.' }] } };
   let r = await post('بَاء');
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { status: 'checked', correct: true, score: 92 });
+  assert.deepEqual(await r.json(), { status: 'checked', correct: true, score: 100, heard: 'باء.' });
 
   // Проверяем, что ушло в сервис
-  assert.match(seen.url, /language=ar-SA&format=detailed/);
+  assert.match(seen.url, /^\/stt\?language=ar-SA&format=detailed/);
   assert.equal(seen.headers['ocp-apim-subscription-key'], 'test-key');
   assert.equal(seen.headers['content-type'], 'audio/wav; codecs=audio/pcm; samplerate=16000');
-  const params = JSON.parse(Buffer.from(seen.headers['pronunciation-assessment'], 'base64').toString('utf8'));
-  assert.equal(params.ReferenceText, 'بَاء');
-  assert.equal(params.GradingSystem, 'HundredMark');
+  assert.equal(seen.headers['pronunciation-assessment'], undefined, 'платная оценка не используется');
   assert.equal(seen.body.subarray(0, 4).toString(), 'RIFF');
   assert.equal(seen.body.readUInt16LE(22), 1, 'моно');
   assert.equal(seen.body.readUInt32LE(24), 16000, '16 кГц');
 
-  reply = { body: { RecognitionStatus: 'Success', NBest: [{ AccuracyScore: 41, CompletenessScore: 100, Words: [{ ErrorType: 'Mispronunciation' }] }] } };
-  assert.deepEqual(await (await post('بَاء')).json(), { status: 'checked', correct: false, score: 41 });
+  // Похожая, но другая буква
+  reply = { body: { RecognitionStatus: 'Success', NBest: [{ Lexical: 'ساد', Display: 'ساد' }] } };
+  let j = await (await post('صَاد')).json();
+  assert.equal(j.correct, false);
+  assert.equal(j.heard, 'ساد');
 
-  reply = { body: { RecognitionStatus: 'Success', NBest: [{ AccuracyScore: 95, CompletenessScore: 0, Words: [{ ErrorType: 'Omission' }] }] } };
-  assert.equal((await (await post('بَاء')).json()).correct, false, 'пропущенное слово не засчитывается');
+  // Сервис услышал саму букву: подходит запасной вариант
+  reply = { body: { RecognitionStatus: 'Success', NBest: [{ Lexical: 'ب', Display: 'ب' }] } };
+  assert.equal((await (await post('بَاء', { alt: 'ب' })).json()).correct, true);
+  assert.equal((await (await post('بَاء')).json()).correct, false);
+
+  // Верный ответ во втором варианте распознавания
+  reply = { body: { RecognitionStatus: 'Success', NBest: [{ Lexical: 'بات', Display: 'بات' }, { Lexical: 'باء', Display: 'باء' }] } };
+  assert.equal((await (await post('بَاء')).json()).correct, true);
+
+  // Распознано что-то не арабское
+  reply = { body: { RecognitionStatus: 'Success', NBest: [{ Lexical: 'okay', Display: 'Okay.' }] } };
+  assert.deepEqual(await (await post('بَاء')).json(), { status: 'silent' });
 
   reply = { body: { RecognitionStatus: 'NoMatch' } };
   assert.deepEqual(await (await post('بَاء')).json(), { status: 'silent' });

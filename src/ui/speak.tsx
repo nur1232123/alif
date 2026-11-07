@@ -2,6 +2,7 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } fr
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import type { SpeakTask } from '@/lib/plan';
+import { playSfx } from '@/lib/sfx';
 import { checkVoice, type VoiceResult } from '@/lib/voice';
 import { Ar, Button, T } from './kit';
 import type { Slots } from './tasks';
@@ -25,8 +26,9 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
     try {
       await recorder.stop();
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-      const checked = await checkVoice(recorder.uri ?? '', task.expected);
+      const checked = await checkVoice(recorder.uri ?? '', task.expected, task.isLetter ? [task.ar] : []);
       if (checked.status === 'checked') {
+        playSfx(checked.correct ? 'right' : 'wrong');
         setResult(checked);
         setPhase('done');
       } else {
@@ -116,7 +118,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
           {message[phase] ? <T tone="muted" style={{ textAlign: 'center' }} testID={`speak-${phase}`}>{message[phase]}</T> : null}
         </View>
         <T size={12} tone="muted" style={{ textAlign: 'center', marginTop: 'auto' }}>
-          Запись отправляется на проверку в сервис распознавания речи. Приложение её не хранит.
+          Запись отправляется на проверку в сервис распознавания речи Microsoft и не хранится.
         </T>
       </View>
     ),
@@ -128,6 +130,12 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
         >
           <T weight="bold" tone={result.correct ? 'good' : 'bad'} size={19}>{result.correct ? 'Правильно' : 'Неправильно'}</T>
           <T>{task.ru}</T>
+          {result.heard ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
+              <T size={14} tone="muted">Услышано:</T>
+              <Ar size={22} style={{ lineHeight: 34 }}>{result.heard}</Ar>
+            </View>
+          ) : null}
           <Button label={last ? 'Завершить' : 'Дальше'} onPress={() => onDone(result.correct)} tone={result.correct ? 'good' : 'bad'} testID="next" />
         </View>
       ) : (

@@ -12,15 +12,17 @@ const testWindow = (globalThis as unknown as { window?: TestWindow }).window;
 export const voiceEnabled = E2E ? testWindow?.__voice !== undefined : Platform.OS !== 'web' && URL.length > 0;
 
 export type VoiceResult =
-  | { status: 'checked'; correct: boolean; score: number }
+  | { status: 'checked'; correct: boolean; score: number; heard?: string }
   | { status: 'silent' }
   | { status: 'unavailable' };
 
-export async function checkVoice(uri: string, expected: string): Promise<VoiceResult> {
+/** alternatives: что ещё считать верным, например саму букву вместо её названия */
+export async function checkVoice(uri: string, expected: string, alternatives: string[] = []): Promise<VoiceResult> {
   if (E2E && testWindow?.__voice) return testWindow.__voice;
   try {
     const form = new FormData();
     form.append('expected', expected);
+    if (alternatives.length) form.append('alt', alternatives.join('|'));
     // В React Native файл передаётся объектом с адресом на устройстве
     form.append('audio', { uri, name: 'voice.m4a', type: 'audio/mp4' } as unknown as Blob);
     const response = await fetch(`${URL}/check`, {

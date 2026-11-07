@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import type { Week } from '@/data/types';
-import { examTitle, getLesson, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, TOTAL_LESSONS } from '@/lib/plan';
-import { useProgress, type LessonState } from '@/lib/progress';
+import { dueItems, examTitle, getLesson, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, TOTAL_LESSONS } from '@/lib/plan';
+import { dayKey, useProgress, type LessonState } from '@/lib/progress';
+import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
 import { say } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -140,6 +141,7 @@ function PracticeTab() {
   const { progress } = useProgress();
   const items = useMemo(() => knownItems(progress.done), [progress.done]);
   const weak = items.filter((x) => (progress.mistakes[x.id] ?? 0) > 0).length;
+  const due = dueItems(progress.done, progress.srs, dayKey(new Date())).length;
   const newest = [...items].reverse().slice(0, 120);
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="practice-tab">
@@ -149,8 +151,14 @@ function PracticeTab() {
       ) : (
         <>
           <View style={{ gap: 10, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: c.line, backgroundColor: c.surface }}>
-            <T size={18} weight="bold">{weak > 0 ? `Слабых мест: ${weak}` : 'Ошибок нет'}</T>
-            <T tone="muted" size={14}>{weak > 0 ? 'Сначала повторим то, где были ошибки.' : 'Повторим случайные слова и буквы из пройденного.'}</T>
+            <T size={18} weight="bold" testID="due-count">{due > 0 ? `Пора повторить: ${due}` : weak > 0 ? `Слабых мест: ${weak}` : 'Всё повторено'}</T>
+            <T tone="muted" size={14}>
+              {due > 0
+                ? 'Пора освежить пройденное, чтобы оно не забылось. После каждого верного ответа следующий повтор будет позже: через день, 3 дня, неделю, месяц.'
+                : weak > 0
+                  ? 'Сначала повторим то, где были ошибки.'
+                  : 'Повторим случайные слова и буквы из пройденного.'}
+            </T>
             <Button label="Начать тренировку" onPress={() => router.push('/lesson/practice')} testID="practice" />
           </View>
           <T weight="bold" size={18}>Уже знакомо: {items.length}</T>
@@ -185,6 +193,67 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
+const HOURS = [8, 12, 17, 19, 21];
+
+function SettingsBlock() {
+  const c = useColors();
+  const { progress, updateSettings } = useProgress();
+  const { settings } = progress;
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const setReminder = async (on: boolean, hour = settings.reminderHour) => {
+    setNotice(null);
+    if (!on) {
+      await cancelReminder();
+      updateSettings({ reminder: false, reminderHour: hour });
+      return;
+    }
+    const ok = await scheduleReminder(progress.name ?? '', hour, 3);
+    updateSettings({ reminder: ok, reminderHour: hour });
+    if (!ok) setNotice('Уведомления запрещены. Разрешите их для «Алиф» в настройках телефона.');
+  };
+
+  const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 56 };
+  return (
+    <View style={{ gap: 4, padding: 16, borderRadius: 16, borderWidth: 2, borderColor: c.line, backgroundColor: c.surface }} testID="settings">
+      <T size={18} weight="bold">Настройки</T>
+      <View style={row}>
+        <T style={{ flex: 1 }}>Звуки ответов</T>
+        <Switch value={settings.sounds} onValueChange={(v) => updateSettings({ sounds: v })} trackColor={{ true: c.accent, false: c.line }} testID="sounds-switch" />
+      </View>
+      {remindersSupported ? (
+        <>
+          <View style={row}>
+            <T style={{ flex: 1 }}>Напоминать каждый день</T>
+            <Switch value={settings.reminder} onValueChange={(v) => setReminder(v)} trackColor={{ true: c.accent, false: c.line }} testID="reminder-switch" />
+          </View>
+          {settings.reminder ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 6 }}>
+              {HOURS.map((h) => {
+                const active = settings.reminderHour === h;
+                return (
+                  <Pressable
+                    key={h}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setReminder(true, h)}
+                    style={{ minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 2, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.soft : c.surface }}
+                  >
+                    <T weight={active ? 'bold' : 'regular'}>{h}:00</T>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <T size={13} tone="muted">Ежедневные напоминания работают в приложении на телефоне.</T>
+      )}
+      {notice ? <T size={14} tone="bad">{notice}</T> : null}
+    </View>
+  );
+}
+
 function ProfileTab() {
   const { progress, liveStreak, currentLessonId } = useProgress();
   const doneCount = Object.keys(progress.done).length;
@@ -205,6 +274,7 @@ function ProfileTab() {
         <Stat value={`${week} / ${ALL_WEEKS.length}`} label="неделя курса" />
         <Stat value={String(words)} label="знакомых элементов" />
       </View>
+      <SettingsBlock />
       <Button label="Изменить имя" kind="quiet" onPress={() => router.push('/welcome')} testID="change-name" />
       {Footer ? <Footer /> : null}
     </ScrollView>

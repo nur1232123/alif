@@ -18,9 +18,17 @@ export type Progress = {
   streak: number;
   /** Сколько раз ученик ошибся в элементе */
   mistakes: Record<string, number>;
+  /** Умное повторение: ступень и день следующего повтора для каждого элемента */
+  srs: Record<string, { box: number; due: string }>;
+  settings: Settings;
   /** Только для веб-версии: все уроки открыты для просмотра */
   unlocked?: boolean;
 };
+
+export type Settings = { sounds: boolean; reminder: boolean; reminderHour: number };
+
+/** Через сколько дней повторять элемент на каждой ступени */
+export const SRS_DAYS = [0, 1, 3, 7, 16, 35];
 
 export const EMPTY: Progress = {
   name: null,
@@ -30,6 +38,8 @@ export const EMPTY: Progress = {
   lastActive: null,
   streak: 0,
   mistakes: {},
+  srs: {},
+  settings: { sounds: true, reminder: false, reminderHour: 19 },
 };
 
 export function dayKey(date: Date) {
@@ -39,6 +49,12 @@ export function dayKey(date: Date) {
 }
 
 const today = () => dayKey(new Date());
+
+function addDays(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return dayKey(d);
+}
 
 function yesterday() {
   const d = new Date();
@@ -63,6 +79,7 @@ type Ctx = {
   finishLesson: (id: string, score: number, total: number) => FinishResult;
   finishPractice: () => void;
   recordAnswer: (itemId: string, correct: boolean) => void;
+  updateSettings: (patch: Partial<Settings>) => void;
   /** Следующий урок по порядку, null если курс пройден */
   currentLessonId: string | null;
   lessonState: (id: string) => LessonState;
@@ -86,7 +103,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(KEY)
       .then((raw) => {
         if (raw) {
-          latest.current = { ...EMPTY, ...JSON.parse(raw) };
+          const saved = JSON.parse(raw);
+          latest.current = { ...EMPTY, ...saved, settings: { ...EMPTY.settings, ...saved.settings } };
           setProgress(latest.current);
         }
       })
@@ -145,6 +163,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [save],
   );
 
+  const updateSettings = useCallback(
+    (patch: Partial<Settings>) => {
+      const current = latest.current;
+      save({ ...current, settings: { ...current.settings, ...patch } });
+    },
+    [save],
+  );
+
   const finishPractice = useCallback(() => {
     const current = latest.current;
     save({ ...current, streak: nextStreak(current), lastActive: today() });
@@ -155,11 +181,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const current = latest.current;
       const count = current.mistakes[itemId] ?? 0;
       const nextCount = correct ? Math.max(0, count - 1) : count + 1;
-      if (nextCount === count) return;
       const mistakes = { ...current.mistakes };
       if (nextCount === 0) delete mistakes[itemId];
       else mistakes[itemId] = nextCount;
-      save({ ...current, mistakes });
+      // Верный ответ поднимает элемент на ступень выше, ошибка возвращает в начало
+      const before = current.srs[itemId];
+      let srs = current.srs;
+      if (!correct) srs = { ...srs, [itemId]: { box: 0, due: today() } };
+      else if (!before || before.due <= today()) {
+        const box = Math.min((before?.box ?? 0) + 1, SRS_DAYS.length - 1);
+        srs = { ...srs, [itemId]: { box, due: addDays(SRS_DAYS[box]) } };
+      }
+      save({ ...current, mistakes, srs });
     },
     [save],
   );
@@ -185,10 +218,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer,
+      ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, updateSettings,
       currentLessonId, lessonState, todayCount, liveStreak, replaceProgress: save,
     }),
-    [ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, currentLessonId, lessonState, todayCount, liveStreak, save],
+    [ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, updateSettings, currentLessonId, lessonState, todayCount, liveStreak, save],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

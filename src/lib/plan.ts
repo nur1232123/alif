@@ -427,13 +427,32 @@ export function knownItems(done: Record<string, unknown>): Item[] {
   return uniqueBy(known, (x) => x.ar);
 }
 
-export function buildPractice(done: Record<string, unknown>, mistakes: Record<string, number>, size = 10, random = Math.random): Task[] {
+export type SrsState = Record<string, { box: number; due: string }>;
+
+/** Элементы, которые пора повторить сегодня */
+export function dueItems(done: Record<string, unknown>, srs: SrsState, today: string): Item[] {
+  return knownItems(done).filter((x) => srs[x.id] && srs[x.id].due <= today);
+}
+
+export function buildPractice(
+  done: Record<string, unknown>,
+  mistakes: Record<string, number>,
+  size = 10,
+  random = Math.random,
+  srs: SrsState = {},
+  today = '',
+): Task[] {
   const items = knownItems(done);
-  const weak = shuffled(items.filter((x) => (mistakes[x.id] ?? 0) > 0), random).sort(
+  // Сначала то, что пора повторить, потом ошибки, потом остальное
+  const due = shuffled(items.filter((x) => srs[x.id] && srs[x.id].due <= today), random).sort(
+    (a, b) => srs[a.id].box - srs[b.id].box,
+  );
+  const dueIds = new Set(due.map((x) => x.id));
+  const weak = shuffled(items.filter((x) => !dueIds.has(x.id) && (mistakes[x.id] ?? 0) > 0), random).sort(
     (a, b) => (mistakes[b.id] ?? 0) - (mistakes[a.id] ?? 0),
   );
-  const rest = shuffled(items.filter((x) => !mistakes[x.id]), random);
-  const picked = [...weak, ...rest].slice(0, size);
+  const rest = shuffled(items.filter((x) => !dueIds.has(x.id) && !mistakes[x.id]), random);
+  const picked = [...due, ...weak, ...rest].slice(0, size);
   const sameType = (item: Item) => {
     const week = ALL_WEEKS.find((w) => w.items.some((x) => x.id === item.id));
     return week ?? ALL_WEEKS[0];

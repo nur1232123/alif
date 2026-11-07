@@ -25,6 +25,7 @@ const result = await build({
   target: 'es2020',
   jsx: 'automatic',
   charset: 'utf8',
+  loader: { '.wav': 'dataurl', '.mp3': 'dataurl' },
   resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js', '.json'],
   tsconfig: path.join(root, 'tsconfig.json'),
   alias: {
@@ -32,6 +33,7 @@ const result = await build({
     'expo-router': path.join(root, 'web/shims/router.tsx'),
     'expo-speech': path.join(root, 'web/shims/speech.ts'),
     'expo-audio': path.join(root, 'web/shims/audio.ts'),
+    'expo-notifications': path.join(root, 'web/shims/notifications.ts'),
     '@react-native-async-storage/async-storage': path.join(root, 'web/shims/storage.ts'),
     'react-native-safe-area-context': path.join(root, 'web/shims/safe-area.tsx'),
   },
