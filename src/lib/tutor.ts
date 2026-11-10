@@ -1,7 +1,8 @@
 import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
 
 export type TutorMessage = { role: 'user' | 'model'; text: string };
-export type TutorReply = { ok: true; text: string } | { ok: false; reason: 'offline' | 'busy' | 'off' };
+export type TutorFailure = 'offline' | 'busy' | 'off' | 'token';
+export type TutorReply = { ok: true; text: string } | { ok: false; reason: TutorFailure };
 
 /** ИИ-учитель работает в приложении на телефоне, когда подключён сервер с ключом Gemini */
 export const tutorEnabled = E2E ? testWindow?.__tutor !== undefined : serverReady;
@@ -20,6 +21,7 @@ export async function askTutor(messages: TutorMessage[], context = ''): Promise<
     });
     if (response.status === 503) return { ok: false, reason: 'off' };
     if (response.status === 429) return { ok: false, reason: 'busy' };
+    if (response.status === 401) return { ok: false, reason: 'token' };
     if (!response.ok) return { ok: false, reason: 'busy' };
     const data = (await response.json()) as { text?: string };
     return data.text ? { ok: true, text: data.text } : { ok: false, reason: 'busy' };
@@ -28,8 +30,9 @@ export async function askTutor(messages: TutorMessage[], context = ''): Promise<
   }
 }
 
-export const TUTOR_ERRORS: Record<'offline' | 'busy' | 'off', string> = {
+export const TUTOR_ERRORS: Record<TutorFailure, string> = {
   offline: 'Нет связи с сервером. Проверьте интернет и что сервер запущен.',
   busy: 'Учитель сейчас занят. Попробуйте через минуту.',
   off: 'ИИ-учитель выключен: на сервере нет ключа Gemini.',
+  token: 'Сервер не принял пароль: APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать.',
 };

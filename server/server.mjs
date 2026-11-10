@@ -16,7 +16,7 @@ const STT_URL =
   process.env.AZURE_STT_URL ??
   `https://${AZURE_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`;
 const AZURE_KEY = process.env.AZURE_KEY ?? '';
-const APP_TOKEN = process.env.APP_TOKEN ?? '';
+const APP_TOKEN = (process.env.APP_TOKEN ?? '').trim();
 const LANGUAGE = process.env.SPEECH_LANGUAGE ?? 'ar-SA';
 // Порог «правильно» от 0 до 100: насколько услышанное похоже на ожидаемое
 const PASS_SCORE = Number(process.env.PASS_SCORE ?? 75);
@@ -240,14 +240,20 @@ function send(res, code, body) {
 const server = createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!AZURE_KEY, tutor: !!GEMINI_KEY });
   if (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor')) return send(res, 404, { error: 'not found' });
-  if (APP_TOKEN && req.headers['x-app-token'] !== APP_TOKEN) return send(res, 401, { error: 'bad token' });
+  if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
+    console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
+    return send(res, 401, { error: 'bad token' });
+  }
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
   if (limited(ip)) return send(res, 429, { error: 'too many requests' });
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
     try {
       const input = readMessages(await readBody(req));
-      if (!input) return send(res, 400, { error: 'bad request' });
+      if (!input) {
+        console.error('Учитель: неверный запрос от приложения');
+        return send(res, 400, { error: 'bad request' });
+      }
       return send(res, 200, { text: await askTutor(input.messages, input.context) });
     } catch (error) {
       console.error(error.message);
