@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import type { BuildTask, ChoiceTask, IntroTask, MatchTask, Option, ReadTask, TipTask } from '@/lib/plan';
 import { playSfx } from '@/lib/sfx';
 import { say, sayAll } from '@/lib/speech';
+import { askTutor, TUTOR_ERRORS, tutorEnabled } from '@/lib/tutor';
 import { Ar, Button, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
 import { fonts, useColors } from './theme';
 
@@ -11,12 +12,47 @@ const E2E = process.env.EXPO_PUBLIC_E2E === '1';
 export type Slots = { body: React.ReactNode; footer: React.ReactNode };
 
 /** Нижняя панель после ответа, как в уроках: зелёная или красная */
-function Feedback({ correct, explainAr, explainRu, onNext, label }: {
+/** После ошибки ИИ-учитель объясняет, почему ответ неверный */
+function WhyButton({ question }: { question: string }) {
+  const c = useColors();
+  const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [text, setText] = useState('');
+  const ask = async () => {
+    setState('loading');
+    const reply = await askTutor([{ role: 'user', text: question }]);
+    setText(reply.ok ? reply.text : TUTOR_ERRORS[reply.reason]);
+    setState('done');
+  };
+  if (state === 'idle') {
+    return (
+      <Pressable accessibilityRole="button" onPress={ask} testID="why" style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' }}>
+        <T weight="bold" tone="bad">Почему? Спросить ИИ-учителя</T>
+      </Pressable>
+    );
+  }
+  if (state === 'loading') {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 }}>
+        <ActivityIndicator color={c.bad} />
+        <T tone="muted">Учитель думает…</T>
+      </View>
+    );
+  }
+  return (
+    <ScrollView style={{ maxHeight: 200, borderRadius: 12, backgroundColor: c.surface }} contentContainerStyle={{ padding: 12 }} testID="why-answer">
+      <T size={15} style={{ lineHeight: 23 }}>{text}</T>
+    </ScrollView>
+  );
+}
+
+function Feedback({ correct, explainAr, explainRu, onNext, label, question }: {
   correct: boolean;
   explainAr?: string;
   explainRu?: string;
   onNext: () => void;
   label: string;
+  /** Вопрос для ИИ-учителя, если ответ неверный */
+  question?: string;
 }) {
   const c = useColors();
   useEffect(() => {
@@ -34,10 +70,13 @@ function Feedback({ correct, explainAr, explainRu, onNext, label }: {
           {explainRu ? <T style={{ flexShrink: 1 }}>{explainRu}</T> : null}
         </View>
       ) : null}
+      {!correct && question && tutorEnabled ? <WhyButton question={question} /> : null}
       <Button label={label} onPress={onNext} tone={correct ? 'good' : 'bad'} testID="next" />
     </View>
   );
 }
+
+const describe = (o?: Option) => [o?.ar, o?.ru, o?.say].filter(Boolean).join(' / ') || '—';
 
 export function useTip(task: TipTask, onDone: () => void): Slots {
   const c = useColors();
@@ -265,7 +304,21 @@ export function useChoice(task: ChoiceTask, last: boolean, onDone: (correct: boo
       </View>
     ),
     footer: checked ? (
-      <Feedback correct={correct} explainAr={task.explainAr} explainRu={task.explainRu} label={last ? 'Завершить' : 'Дальше'} onNext={() => onDone(correct)} />
+      <Feedback
+        correct={correct}
+        explainAr={task.explainAr}
+        explainRu={task.explainRu}
+        label={last ? 'Завершить' : 'Дальше'}
+        onNext={() => onDone(correct)}
+        question={[
+          `Задание: «${HEADINGS[task.kind]}».`,
+          task.ar ? `На экране: ${task.ar}.` : task.say ? `Звучало: ${task.say}.` : '',
+          task.ru ? `Вопрос: ${task.ru}.` : '',
+          `Я выбрал: ${describe(task.options.find((o) => o.id === selected))}.`,
+          `Правильно: ${describe(task.options.find((o) => o.id === task.answerId))}.`,
+          'Объясни коротко, почему мой ответ неверный и как запомнить правильный.',
+        ].filter(Boolean).join(' ')}
+      />
     ) : (
       <Button label="Проверить" onPress={() => setChecked(true)} disabled={!selected} testID="check" />
     ),
@@ -425,7 +478,14 @@ export function useBuild(task: BuildTask, last: boolean, onDone: (correct: boole
       </View>
     ),
     footer: checked ? (
-      <Feedback correct={correct} explainAr={answerText} explainRu={task.ru} label={last ? 'Завершить' : 'Дальше'} onNext={() => onDone(correct)} />
+      <Feedback
+        correct={correct}
+        explainAr={answerText}
+        explainRu={task.ru}
+        label={last ? 'Завершить' : 'Дальше'}
+        onNext={() => onDone(correct)}
+        question={`Нужно было собрать по-арабски «${task.ru}». Правильно: ${answerText}. Я собрал: ${text || '—'}. Объясни коротко мою ошибку.`}
+      />
     ) : (
       <Button label="Проверить" onPress={() => setChecked(true)} disabled={chosen.length === 0} testID="check" />
     ),

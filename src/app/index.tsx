@@ -261,6 +261,20 @@ function PracticeTab() {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="practice-tab">
       <T size={26} weight="bold" style={{ lineHeight: 34 }}>Тренировка</T>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/tutor')}
+          testID="open-tutor"
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: c.line, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}
+        >
+          <Khatam size={44} fill={c.gold}>
+            <T size={18} weight="bold" style={{ color: c.onAccent }}>؟</T>
+          </Khatam>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T size={17} weight="bold">Спросить ИИ-учителя</T>
+            <T size={14} tone="muted">Объяснит правило или слово по-русски</T>
+          </View>
+        </Pressable>
       {items.length === 0 ? (
         <T tone="muted">Пройдите первый урок, и здесь появится всё, что вы выучили.</T>
       ) : (

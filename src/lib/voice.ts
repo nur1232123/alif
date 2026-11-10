@@ -1,15 +1,7 @@
-import { Platform } from 'react-native';
+import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
 
-const URL = process.env.EXPO_PUBLIC_VOICE_URL ?? '';
-const TOKEN = process.env.EXPO_PUBLIC_VOICE_TOKEN ?? '';
-const E2E = process.env.EXPO_PUBLIC_E2E === '1';
-
-/** В автотесте сервер заменяется ответом из страницы */
-type TestWindow = { __voice?: VoiceResult };
-const testWindow = (globalThis as unknown as { window?: TestWindow }).window;
-
-/** Голос работает в приложении на телефоне, когда указан адрес сервера проверки */
-export const voiceEnabled = E2E ? testWindow?.__voice !== undefined : Platform.OS !== 'web' && URL.length > 0;
+/** Голос работает в приложении на телефоне, когда указан адрес сервера */
+export const voiceEnabled = E2E ? testWindow?.__voice !== undefined : serverReady;
 
 export type VoiceResult =
   | { status: 'checked'; correct: boolean; score: number; heard?: string }
@@ -18,16 +10,16 @@ export type VoiceResult =
 
 /** alternatives: что ещё считать верным, например саму букву вместо её названия */
 export async function checkVoice(uri: string, expected: string, alternatives: string[] = []): Promise<VoiceResult> {
-  if (E2E && testWindow?.__voice) return testWindow.__voice;
+  if (E2E && testWindow?.__voice) return testWindow.__voice as VoiceResult;
   try {
     const form = new FormData();
     form.append('expected', expected);
     if (alternatives.length) form.append('alt', alternatives.join('|'));
     // В React Native файл передаётся объектом с адресом на устройстве
     form.append('audio', { uri, name: 'voice.m4a', type: 'audio/mp4' } as unknown as Blob);
-    const response = await fetch(`${URL}/check`, {
+    const response = await fetch(`${SERVER_URL}/check`, {
       method: 'POST',
-      headers: { 'x-app-token': TOKEN },
+      headers: { 'x-app-token': SERVER_TOKEN },
       body: form,
     });
     if (!response.ok) return { status: 'unavailable' };

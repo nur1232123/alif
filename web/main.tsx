@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { TextInput, View } from 'react-native';
 import Home from '@/app/index';
 import LessonScreen from '@/app/lesson/[id]';
+import TutorScreen from '@/app/tutor';
 import Welcome from '@/app/welcome';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
@@ -62,7 +63,7 @@ function Routes() {
   if (!progress.name || path === '/welcome') return <Welcome key={path} />;
 
   const [, section, id] = path.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : Home;
+  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : Home;
   return (
     <ParamsContext.Provider key={path} value={{ id }}>
       <Screen />

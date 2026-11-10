@@ -39,7 +39,7 @@ const azure = createServer((req, res) => {
 await new Promise((r) => azure.listen(9791, r));
 
 const app = spawn('node', ['server/server.mjs'], {
-  env: { ...process.env, PORT: '9792', AZURE_STT_URL: 'http://127.0.0.1:9791/stt', AZURE_KEY: 'test-key', APP_TOKEN: 'tok' },
+  env: { ...process.env, PORT: '9792', AZURE_STT_URL: 'http://127.0.0.1:9791/stt', AZURE_KEY: 'test-key', APP_TOKEN: 'tok', GEMINI_API_KEY: 'g-key', GEMINI_URL: 'http://127.0.0.1:9791/gemini' },
   stdio: 'inherit',
 });
 await new Promise((r) => setTimeout(r, 500));
@@ -96,6 +96,34 @@ try {
   assert.equal((await post('')).status, 400);
   assert.equal((await post('بَاء', { file: Buffer.from('not audio') })).status, 502);
   assert.equal((await post('بَاء', { file: Buffer.alloc(3 * 1024 * 1024) }).catch(() => ({ status: 413 }))).status, 413);
+  // ИИ-учитель
+  const ask = (body, token = 'tok') =>
+    fetch('http://127.0.0.1:9792/tutor', { method: 'POST', headers: { 'x-app-token': token, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  reply = { body: { candidates: [{ content: { parts: [{ text: 'Буква ص звучит твёрже, чем س.' }] } }] } };
+  r = await ask({ messages: [{ role: 'user', text: 'Почему ص, а не س?' }], context: 'Неделя 1, алфавит' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: 'Буква ص звучит твёрже, чем س.' });
+  assert.equal(seen.url, '/gemini');
+  assert.equal(seen.headers['x-goog-api-key'], 'g-key');
+  const sent = JSON.parse(seen.body.toString('utf8'));
+  assert.match(sent.system_instruction.parts[0].text, /учитель арабского/);
+  assert.match(sent.system_instruction.parts[0].text, /Неделя 1, алфавит/);
+  assert.deepEqual(sent.contents, [{ role: 'user', parts: [{ text: 'Почему ص, а не س?' }] }]);
+  assert.equal(sent.generationConfig.maxOutputTokens, 700);
+  // Многоходовой разговор
+  await ask({ messages: [{ role: 'user', text: 'а' }, { role: 'model', text: 'б' }, { role: 'user', text: 'в' }] });
+  assert.deepEqual(JSON.parse(seen.body.toString('utf8')).contents.map((c) => c.role), ['user', 'model', 'user']);
+  // Ошибки
+  assert.equal((await ask({ messages: [] })).status, 400, 'пустой разговор');
+  assert.equal((await ask({ messages: [{ role: 'model', text: 'x' }] })).status, 400, 'последним должен быть ученик');
+  assert.equal((await ask({ messages: Array.from({ length: 21 }, () => ({ role: 'user', text: 'x' })) })).status, 400, 'слишком длинный разговор');
+  assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] }, 'wrong')).status, 401);
+  reply = { body: { candidates: [{ finishReason: 'SAFETY', content: { parts: [] } }] } };
+  assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] })).status, 502, 'пустой ответ');
+  reply = { code: 429, body: { error: 'quota' } };
+  assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] })).status, 502, 'лимит Gemini');
+  const health = await (await fetch('http://127.0.0.1:9792/health')).json();
+  assert.deepEqual(health, { ok: true, voice: true, tutor: true });
   console.log('Сервер прошёл все проверки');
 } finally {
   app.kill();

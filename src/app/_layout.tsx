@@ -35,6 +35,7 @@ function Routes() {
       <Stack.Protected guard={!!progress.name}>
         <Stack.Screen name="index" />
         <Stack.Screen name="lesson/[id]" />
+        <Stack.Screen name="tutor" />
       </Stack.Protected>
       <Stack.Screen name="welcome" />
     </Stack>

@@ -1,6 +1,7 @@
 // Сервер проверки произношения через бесплатное распознавание речи Azure. Ключ сервиса хранится здесь, а не в приложении.
 // Запуск: node server/server.mjs  Настройки: см. server/README.md
 import { execFile } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -18,8 +19,33 @@ const APP_TOKEN = process.env.APP_TOKEN ?? '';
 const LANGUAGE = process.env.SPEECH_LANGUAGE ?? 'ar-SA';
 // Порог «правильно» от 0 до 100: насколько услышанное похоже на ожидаемое
 const PASS_SCORE = Number(process.env.PASS_SCORE ?? 75);
+// ИИ-учитель
+const GEMINI_KEY = process.env.GEMINI_API_KEY ?? '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite';
+const GEMINI_URL =
+  process.env.GEMINI_URL ?? `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_BODY = 2 * 1024 * 1024;
+
+// ffmpeg ставится вместе с проектом (пакет ffmpeg-static), отдельно устанавливать не нужно
+const FFMPEG = (() => {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  try {
+    return createRequire(import.meta.url)('ffmpeg-static') || 'ffmpeg';
+  } catch {
+    return 'ffmpeg';
+  }
+})();
 const MAX_PER_MINUTE = 30;
+
+/** Подсказывает адрес компьютера в сети: его нужно вписать в .env приложения */
+async function showAddresses() {
+  const { networkInterfaces } = await import('node:os');
+  const ips = Object.values(networkInterfaces())
+    .flat()
+    .filter((n) => n && n.family === 'IPv4' && !n.internal)
+    .map((n) => n.address);
+  for (const ip of ips) console.log(`Адрес для приложения: EXPO_PUBLIC_SERVER_URL=http://${ip}:${PORT}`);
+}
 
 const hits = new Map();
 function limited(ip) {
@@ -79,7 +105,7 @@ async function toWav(audio) {
     await writeFile(input, audio);
     await new Promise((resolve, reject) => {
       execFile(
-        'ffmpeg',
+        FFMPEG,
         ['-hide_banner', '-loglevel', 'error', '-i', input, '-t', '8', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', '-y', output],
         { timeout: 10_000 },
         (error) => (error ? reject(error) : resolve()),
@@ -159,17 +185,75 @@ async function assess(wav, expected, alternatives) {
   return { status: 'checked', correct: score >= PASS_SCORE, score, heard };
 }
 
+const TUTOR_RULES = `Ты учитель арабского языка в приложении «Алиф» для русскоговорящих учеников.
+Курс идёт по темам учебника «العربية بين يديك», часть 1: алфавит, огласовки, слова, чтение, разговор.
+Правила ответа:
+- Отвечай по-русски, коротко и просто: 2–5 предложений, без сложных терминов.
+- Арабские слова всегда пиши с огласовками (харакатами), а рядом русское чтение и перевод.
+- Если ученик ошибся, объясни, чем похожи и чем отличаются варианты, и дай одну подсказку, как запомнить.
+- Не выдумывай. Если не уверен, скажи об этом.
+- Говори только об арабском языке и учёбе. На другие темы вежливо откажись.`;
+
+/** Вопрос учителю: история сообщений и что сейчас изучает ученик */
+async function askTutor(messages, context) {
+  const contents = messages.map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text }] }));
+  const system = context ? `${TUTOR_RULES}\n\nСейчас ученик проходит: ${context}` : TUTOR_RULES;
+  const response = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`Gemini ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  const data = await response.json();
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+  if (!text) throw new Error(`Gemini: пустой ответ (${data.candidates?.[0]?.finishReason ?? data.promptFeedback?.blockReason ?? 'нет причины'})`);
+  return text;
+}
+
+/** Проверяет историю сообщений из приложения */
+function readMessages(body) {
+  let data;
+  try {
+    data = JSON.parse(body.toString('utf8'));
+  } catch {
+    return null;
+  }
+  const messages = Array.isArray(data?.messages) ? data.messages : null;
+  if (!messages || messages.length === 0 || messages.length > 20) return null;
+  const clean = messages.map((m) => ({ role: m?.role === 'model' ? 'model' : 'user', text: String(m?.text ?? '').trim().slice(0, 1500) }));
+  if (clean.some((m) => !m.text) || clean[clean.length - 1].role !== 'user') return null;
+  const context = typeof data.context === 'string' ? data.context.slice(0, 300) : '';
+  return { messages: clean, context };
+}
+
 function send(res, code, body) {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(body));
 }
 
 const server = createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
-  if (req.method !== 'POST' || req.url !== '/check') return send(res, 404, { error: 'not found' });
+  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!AZURE_KEY, tutor: !!GEMINI_KEY });
+  if (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor')) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token'] !== APP_TOKEN) return send(res, 401, { error: 'bad token' });
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
   if (limited(ip)) return send(res, 429, { error: 'too many requests' });
+  if (req.url === '/tutor') {
+    if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
+    try {
+      const input = readMessages(await readBody(req));
+      if (!input) return send(res, 400, { error: 'bad request' });
+      return send(res, 200, { text: await askTutor(input.messages, input.context) });
+    } catch (error) {
+      console.error(error.message);
+      return send(res, 502, { error: 'tutor failed' });
+    }
+  }
+  if (!AZURE_KEY) return send(res, 503, { error: 'voice is off' });
   try {
     const form = parseForm(await readBody(req), req.headers['content-type']);
     const expected = form?.expected?.toString('utf8').trim();
@@ -185,9 +269,18 @@ const server = createServer(async (req, res) => {
 
 // Сервер запускается, только когда файл запущен напрямую, а не импортирован в тест
 if (import.meta.url === `file://${process.argv[1]}`) {
-  if (!AZURE_KEY || (!AZURE_REGION && !process.env.AZURE_STT_URL)) {
-    console.error('Укажите AZURE_KEY и AZURE_REGION. Подробности в server/README.md');
+  if (!AZURE_KEY && !GEMINI_KEY) {
+    console.error('Впишите ключи в server/.env (образец: server/.env.example). Подробности в server/README.md');
     process.exit(1);
   }
-  server.listen(PORT, () => console.log(`Сервер проверки слушает порт ${PORT}`));
+  if (AZURE_KEY && !AZURE_REGION && !process.env.AZURE_STT_URL) {
+    console.error('Укажите AZURE_REGION в server/.env, например westeurope');
+    process.exit(1);
+  }
+  server.listen(PORT, () => {
+    console.log(`Сервер «Алиф» работает на порту ${PORT}`);
+    console.log(`Проверка голоса: ${AZURE_KEY ? 'включена' : 'выключена (нет AZURE_KEY)'}`);
+    console.log(`ИИ-учитель: ${GEMINI_KEY ? `включён, модель ${GEMINI_MODEL}` : 'выключен (нет GEMINI_API_KEY)'}`);
+    showAddresses();
+  });
 }
