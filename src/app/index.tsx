@@ -370,6 +370,13 @@ function SettingsBlock() {
       </View>
       <T size={13} tone="muted">При цели 3 урока в день курс займёт год. Больше уроков можно проходить в любой день.</T>
       <View style={row}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T>Все уроки открыты</T>
+          <T size={13} tone="muted">Пробная версия: можно открыть любой урок без очереди</T>
+        </View>
+        <Switch value={settings.allOpen} onValueChange={(v) => updateSettings({ allOpen: v })} trackColor={{ true: c.accent, false: c.line }} testID="all-open-switch" />
+      </View>
+      <View style={row}>
         <T style={{ flex: 1 }}>Звуки ответов</T>
         <Switch value={settings.sounds} onValueChange={(v) => updateSettings({ sounds: v })} trackColor={{ true: c.accent, false: c.line }} testID="sounds-switch" />
       </View>
@@ -475,6 +482,7 @@ export default function Home() {
           <TabButton id="tab-path" label="Путь" active={tab === 'path'} onPress={() => setTab('path')} />
           <TabButton id="tab-letters" label="Буквы" active={tab === 'letters'} onPress={() => setTab('letters')} />
           <TabButton id="tab-practice" label="Тренировка" active={tab === 'practice'} onPress={() => setTab('practice')} />
+          <TabButton id="tab-tutor" label="Учитель" active={false} onPress={() => router.push('/tutor')} />
           <TabButton id="tab-profile" label="Профиль" active={tab === 'profile'} onPress={() => setTab('profile')} />
         </View>
       </View>

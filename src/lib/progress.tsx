@@ -25,7 +25,14 @@ export type Progress = {
   unlocked?: boolean;
 };
 
-export type Settings = { sounds: boolean; reminder: boolean; reminderHour: number; dailyGoal: number };
+export type Settings = {
+  sounds: boolean;
+  reminder: boolean;
+  reminderHour: number;
+  dailyGoal: number;
+  /** Пробная версия: любой урок можно открыть сразу */
+  allOpen: boolean;
+};
 
 /** Через сколько дней повторять элемент на каждой ступени */
 export const SRS_DAYS = [0, 1, 3, 7, 16, 35];
@@ -39,7 +46,7 @@ export const EMPTY: Progress = {
   streak: 0,
   mistakes: {},
   srs: {},
-  settings: { sounds: true, reminder: false, reminderHour: 19, dailyGoal: LESSONS_PER_DAY },
+  settings: { sounds: true, reminder: false, reminderHour: 19, dailyGoal: LESSONS_PER_DAY, allOpen: true },
 };
 
 export function dayKey(date: Date) {
@@ -207,7 +214,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const lessonState = useCallback(
     (id: string): LessonState => {
       if (id in progress.done) return 'done';
-      if (progress.unlocked) return 'open';
+      if (progress.unlocked || progress.settings.allOpen) return 'open';
       // Уроки не закрываются по времени: цель дня только подсказывает, когда отдохнуть
       return id === currentLessonId ? 'open' : 'locked';
     },
