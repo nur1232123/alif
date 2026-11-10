@@ -7,6 +7,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AZURE_REGION = process.env.AZURE_REGION ?? ''; // например westeurope
@@ -268,7 +269,7 @@ const server = createServer(async (req, res) => {
 });
 
 // Сервер запускается, только когда файл запущен напрямую, а не импортирован в тест
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   if (!AZURE_KEY && !GEMINI_KEY) {
     console.error('Впишите ключи в server/.env (образец: server/.env.example). Подробности в server/README.md');
     process.exit(1);
