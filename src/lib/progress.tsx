@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ALL_WEEKS } from '@/data/course';
 import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK } from './plan';
+import { TEST_MODE } from './server';
 
 const KEY = 'alif.progress.v5';
 
@@ -30,7 +31,7 @@ export type Settings = {
   reminder: boolean;
   reminderHour: number;
   dailyGoal: number;
-  /** Пробная версия: любой урок можно открыть сразу */
+  /** Режим проверки (только при TEST_MODE): любой урок можно открыть сразу */
   allOpen: boolean;
 };
 
@@ -214,7 +215,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const lessonState = useCallback(
     (id: string): LessonState => {
       if (id in progress.done) return 'done';
-      if (progress.unlocked || progress.settings.allOpen) return 'open';
+      if (progress.unlocked || (TEST_MODE && progress.settings.allOpen)) return 'open';
       // Уроки не закрываются по времени: цель дня только подсказывает, когда отдохнуть
       return id === currentLessonId ? 'open' : 'locked';
     },

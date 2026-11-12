@@ -8,6 +8,7 @@ import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
 import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
+import { TEST_MODE } from '@/lib/server';
 import { say } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -36,14 +37,13 @@ function WeekBanner({ week }: { week: Week }) {
   );
 }
 
-function PathNode({ week, n, state, onPress }: { week: Week; n: number; state: LessonState; onPress: () => void }) {
+function PathNode({ week, n, state, current, onPress }: { week: Week; n: number; state: LessonState; current: boolean; onPress: () => void }) {
   const c = useColors();
   const exam = n === LESSONS_PER_WEEK;
   const day = Math.ceil(n / LESSONS_PER_DAY);
   const lesson = getLesson(lessonId(week.n, n))!;
   const checkpoint = lesson.spec.kind === 'checkpoint';
   const size = exam ? 84 : checkpoint ? 78 : 70;
-  const current = state === 'open';
   const fill = state === 'done' ? c.gold : state === 'open' ? c.accent : c.line;
   // В уроке с новыми буквами на узле видна первая из них
   const spec = lesson.spec;
@@ -137,7 +137,7 @@ function PathTab() {
             <WeekBanner week={week} />
             {Array.from({ length: LESSONS_PER_WEEK }, (_, i) => {
               const id = lessonId(week.n, i + 1);
-              return <PathNode key={id} week={week} n={i + 1} state={lessonState(id)} onPress={() => setSheet(id)} />;
+              return <PathNode key={id} week={week} n={i + 1} state={lessonState(id)} current={id === currentLessonId} onPress={() => setSheet(id)} />;
             })}
           </View>
         )}
@@ -369,13 +369,15 @@ function SettingsBlock() {
         })}
       </View>
       <T size={13} tone="muted">При цели 3 урока в день курс займёт год. Больше уроков можно проходить в любой день.</T>
-      <View style={row}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <T>Все уроки открыты</T>
-          <T size={13} tone="muted">Пробная версия: можно открыть любой урок без очереди</T>
+      {TEST_MODE ? (
+        <View style={row}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T>Режим проверки: все уроки открыты</T>
+            <T size={13} tone="muted">Видно только вам. У учеников уроки открываются по порядку</T>
+          </View>
+          <Switch value={settings.allOpen} onValueChange={(v) => updateSettings({ allOpen: v })} trackColor={{ true: c.accent, false: c.line }} testID="all-open-switch" />
         </View>
-        <Switch value={settings.allOpen} onValueChange={(v) => updateSettings({ allOpen: v })} trackColor={{ true: c.accent, false: c.line }} testID="all-open-switch" />
-      </View>
+      ) : null}
       <View style={row}>
         <T style={{ flex: 1 }}>Звуки ответов</T>
         <Switch value={settings.sounds} onValueChange={(v) => updateSettings({ sounds: v })} trackColor={{ true: c.accent, false: c.line }} testID="sounds-switch" />

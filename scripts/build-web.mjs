@@ -46,6 +46,7 @@ const result = await build({
     'process.env.EXPO_PUBLIC_VOICE_URL': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_VOICE_TOKEN': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_SERVER_URL': JSON.stringify(''),
+    'process.env.EXPO_PUBLIC_TEST_MODE': JSON.stringify(process.env.EXPO_PUBLIC_TEST_MODE ?? '1'),
     'process.env.EXPO_PUBLIC_SERVER_TOKEN': JSON.stringify(''),
     global: 'globalThis',
   },
