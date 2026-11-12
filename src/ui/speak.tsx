@@ -137,7 +137,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
           ) : null}
         </View>
         <T size={12} tone="muted" style={{ textAlign: 'center', marginTop: 'auto' }}>
-          Запись отправляется на проверку в сервис распознавания речи Microsoft и не хранится.
+          Запись отправляется на проверку в сервис распознавания речи и не хранится.
         </T>
       </View>
     ),
