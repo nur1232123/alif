@@ -1,4 +1,4 @@
-// Проверяет сервер целиком на настоящем m4a, но с подменённым сервисом Azure
+// Проверяет сервер целиком на настоящем m4a, но с подменёнными сервисами Azure, Groq и Gemini
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -124,6 +124,46 @@ try {
   assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] })).status, 502, 'лимит Gemini');
   const health = await (await fetch('http://127.0.0.1:9792/health')).json();
   assert.deepEqual(health, { ok: true, voice: true, tutor: true });
+
+  // Groq вместо Azure: ключ без банковской карты
+  const groq = spawn('node', ['server/server.mjs'], {
+    env: { ...process.env, PORT: '9794', GROQ_API_KEY: 'gq-key', GROQ_URL: 'http://127.0.0.1:9791/groq', AZURE_KEY: '', GEMINI_API_KEY: '' },
+    stdio: 'inherit',
+  });
+  await new Promise((r) => setTimeout(r, 500));
+  try {
+    const postGroq = (expected, alt) => {
+      const form = new FormData();
+      form.append('expected', expected);
+      if (alt) form.append('alt', alt);
+      form.append('audio', new Blob([audio], { type: 'audio/mp4' }), 'voice.m4a');
+      return fetch('http://127.0.0.1:9794/check', { method: 'POST', body: form });
+    };
+    reply = { body: { text: ' باء', segments: [{ no_speech_prob: 0.05 }] } };
+    assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'checked', correct: true, score: 100, heard: 'باء' });
+    assert.equal(seen.url, '/groq');
+    assert.equal(seen.headers.authorization, 'Bearer gq-key');
+    const body = seen.body.toString('latin1');
+    assert.match(body, /name="model"\r\n\r\nwhisper-large-v3/);
+    assert.match(body, /name="language"\r\n\r\nar\r\n/);
+    assert.match(body, /name="response_format"\r\n\r\nverbose_json/);
+    assert.ok(body.includes('RIFF'), 'отправлен wav');
+    reply = { body: { text: 'ساد', segments: [{ no_speech_prob: 0.1 }] } };
+    assert.equal((await (await postGroq('صَاد')).json()).correct, false, 'похожая буква не засчитана');
+    reply = { body: { text: 'ب', segments: [{ no_speech_prob: 0.1 }] } };
+    assert.equal((await (await postGroq('بَاء', 'ب')).json()).correct, true, 'запасной вариант');
+    reply = { body: { text: 'ترجمة نانسي قنقر', segments: [{ no_speech_prob: 0.2 }] } };
+    assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'silent' }, 'выдуманная фраза в тишине');
+    reply = { body: { text: 'با', segments: [{ no_speech_prob: 0.9 }] } };
+    assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'silent' }, 'тишина');
+    reply = { body: { text: '' } };
+    assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'silent' });
+    reply = { code: 429, body: { error: 'rate' } };
+    assert.equal((await postGroq('بَاء')).status, 502);
+    assert.deepEqual(await (await fetch('http://127.0.0.1:9794/health')).json(), { ok: true, voice: true, tutor: false });
+  } finally {
+    groq.kill();
+  }
   console.log('Сервер прошёл все проверки');
 } finally {
   app.kill();

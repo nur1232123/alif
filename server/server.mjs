@@ -1,4 +1,4 @@
-// Сервер проверки произношения через бесплатное распознавание речи Azure. Ключ сервиса хранится здесь, а не в приложении.
+// Сервер проверки произношения (бесплатное распознавание речи Azure или Groq) и ИИ-учителя. Ключ сервиса хранится здесь, а не в приложении.
 // Запуск: node server/server.mjs  Настройки: см. server/README.md
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -18,6 +18,11 @@ const STT_URL =
 const AZURE_KEY = process.env.AZURE_KEY ?? '';
 const APP_TOKEN = (process.env.APP_TOKEN ?? '').trim();
 const LANGUAGE = process.env.SPEECH_LANGUAGE ?? 'ar-SA';
+// Groq: бесплатное распознавание речи моделью Whisper, ключ без банковской карты
+const GROQ_KEY = process.env.GROQ_API_KEY ?? '';
+const GROQ_MODEL = process.env.GROQ_MODEL ?? 'whisper-large-v3';
+const GROQ_URL = process.env.GROQ_URL ?? 'https://api.groq.com/openai/v1/audio/transcriptions';
+const VOICE_ENGINE = AZURE_KEY ? 'Azure' : GROQ_KEY ? 'Groq' : '';
 // Порог «правильно» от 0 до 100: насколько услышанное похоже на ожидаемое
 const PASS_SCORE = Number(process.env.PASS_SCORE ?? 75);
 // ИИ-учитель
@@ -160,8 +165,43 @@ export function similarity(heard, expected) {
   return Math.round((1 - distance(a, b) / Math.max(a.length, b.length)) * 100);
 }
 
+/** Сравнивает варианты услышанного с правильным ответом и альтернативами */
+function score(heardOptions, expected, alternatives, heard) {
+  if (heardOptions.every((h) => !normalize(h))) return { status: 'silent' };
+  const targets = [expected, ...alternatives];
+  let best = 0;
+  for (const h of heardOptions) for (const target of targets) best = Math.max(best, similarity(h, target));
+  return { status: 'checked', correct: best >= PASS_SCORE, score: best, heard };
+}
+
+// Фразы, которые Whisper иногда «слышит» в тишине: это не речь ученика
+const WHISPER_GHOSTS = ['ترجمة', 'اشتركوا', 'المشاهدة', 'شكرا لكم', 'موسيقى', 'نانسي'];
+
+async function assessGroq(wav, expected, alternatives) {
+  const form = new FormData();
+  form.append('file', new Blob([wav], { type: 'audio/wav' }), 'voice.wav');
+  form.append('model', GROQ_MODEL);
+  form.append('language', LANGUAGE.slice(0, 2));
+  form.append('response_format', 'verbose_json');
+  form.append('temperature', '0');
+  const response = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${GROQ_KEY}` },
+    body: form,
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Groq ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  const data = await response.json();
+  const segments = data.segments ?? [];
+  const text = (data.text ?? '').trim();
+  const quiet = segments.length > 0 && segments.every((s) => (s.no_speech_prob ?? 0) > 0.6);
+  if (!text || quiet || WHISPER_GHOSTS.some((g) => text.includes(g))) return { status: 'silent' };
+  return score([text], expected, alternatives, text);
+}
+
 /** Бесплатное распознавание речи: узнаём, что сказал ученик, и сравниваем с ожидаемым */
 async function assess(wav, expected, alternatives) {
+  if (!AZURE_KEY) return assessGroq(wav, expected, alternatives);
   const response = await fetch(`${STT_URL}?language=${LANGUAGE}&format=detailed`, {
     method: 'POST',
     headers: {
@@ -178,12 +218,7 @@ async function assess(wav, expected, alternatives) {
   if (data.RecognitionStatus !== 'Success') throw new Error(`Azure status ${data.RecognitionStatus}`);
   const heardOptions = (data.NBest ?? []).flatMap((n) => [n.Lexical, n.Display]).filter(Boolean);
   if (data.DisplayText) heardOptions.push(data.DisplayText);
-  if (heardOptions.every((h) => !normalize(h))) return { status: 'silent' };
-  const targets = [expected, ...alternatives];
-  let score = 0;
-  for (const heard of heardOptions) for (const target of targets) score = Math.max(score, similarity(heard, target));
-  const heard = data.NBest?.[0]?.Display ?? data.DisplayText ?? '';
-  return { status: 'checked', correct: score >= PASS_SCORE, score, heard };
+  return score(heardOptions, expected, alternatives, data.NBest?.[0]?.Display ?? data.DisplayText ?? '');
 }
 
 const TUTOR_RULES = `Ты учитель арабского языка в приложении «Алиф» для русскоговорящих учеников.
@@ -238,7 +273,7 @@ function send(res, code, body) {
 }
 
 const server = createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!AZURE_KEY, tutor: !!GEMINI_KEY });
+  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!VOICE_ENGINE, tutor: !!GEMINI_KEY });
   if (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor')) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
     console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
@@ -260,7 +295,7 @@ const server = createServer(async (req, res) => {
       return send(res, 502, { error: 'tutor failed' });
     }
   }
-  if (!AZURE_KEY) return send(res, 503, { error: 'voice is off' });
+  if (!VOICE_ENGINE) return send(res, 503, { error: 'voice is off' });
   try {
     const form = parseForm(await readBody(req), req.headers['content-type']);
     const expected = form?.expected?.toString('utf8').trim();
@@ -276,7 +311,7 @@ const server = createServer(async (req, res) => {
 
 // Сервер запускается, только когда файл запущен напрямую, а не импортирован в тест
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  if (!AZURE_KEY && !GEMINI_KEY) {
+  if (!VOICE_ENGINE && !GEMINI_KEY) {
     console.error('Впишите ключи в server/.env (образец: server/.env.example). Подробности в server/README.md');
     process.exit(1);
   }
@@ -286,7 +321,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   }
   server.listen(PORT, () => {
     console.log(`Сервер «Алиф» работает на порту ${PORT}`);
-    console.log(`Проверка голоса: ${AZURE_KEY ? 'включена' : 'выключена (нет AZURE_KEY)'}`);
+    console.log(`Проверка голоса: ${VOICE_ENGINE ? `включена (${VOICE_ENGINE})` : 'выключена (нет GROQ_API_KEY или AZURE_KEY)'}`);
     console.log(`ИИ-учитель: ${GEMINI_KEY ? `включён, модель ${GEMINI_MODEL}` : 'выключен (нет GEMINI_API_KEY)'}`);
     showAddresses();
   });

@@ -17,7 +17,13 @@ npx expo start
 Все три работают через свой небольшой сервер. Ключи лежат только в `server/.env` на вашем компьютере
 и не попадают в приложение и на GitHub. Оба сервиса бесплатны в пределах лимитов.
 
-**1. Ключ Azure Speech** (озвучка и проверка голоса)
+**Ключ Groq** (проверка голоса, без банковской карты)
+
+1. Зайдите на console.groq.com и войдите аккаунтом Google.
+2. Слева откройте **API Keys**, нажмите **Create API Key**, скопируйте ключ.
+3. Впишите его в `server/.env` строкой `GROQ_API_KEY=...`.
+
+**1. Ключ Azure Speech** (озвучка; проверка голоса, если нет Groq). Azure просит банковскую карту для проверки
 
 1. Зайдите на portal.azure.com и создайте ресурс **Speech service** (бывает в разделе Azure AI services).
 2. Тариф (Pricing tier): **Free F0**. Регион: например **West Europe**.
@@ -37,7 +43,7 @@ copy server\.env.example server\.env
 notepad server\.env
 ```
 
-Впишите `AZURE_KEY`, `AZURE_REGION`, `GEMINI_API_KEY` и придумайте `APP_TOKEN` (любая длинная строка), сохраните.
+Впишите `GROQ_API_KEY` (или `AZURE_KEY` и `AZURE_REGION`), `GEMINI_API_KEY` и придумайте `APP_TOKEN` (любая длинная строка), сохраните.
 
 **4. Озвучка курса** (один раз, около 6 тысяч символов из бесплатных 500 тысяч в месяц)
 

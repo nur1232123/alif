@@ -12,6 +12,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
+import { refreshVoice } from '@/lib/voice';
 import { useColors } from '@/ui/theme';
 
 function Routes() {
@@ -48,6 +49,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Звук слышен и на iPhone в беззвучном режиме
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    refreshVoice();
   }, []);
   const [loaded, failed] = useFonts({
     GolosText_400Regular,
