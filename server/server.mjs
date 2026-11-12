@@ -300,8 +300,18 @@ const server = createServer(async (req, res) => {
     const form = parseForm(await readBody(req), req.headers['content-type']);
     const expected = form?.expected?.toString('utf8').trim();
     const alternatives = (form?.alt?.toString('utf8') ?? '').split('|').map((x) => x.trim()).filter(Boolean).slice(0, 4);
-    if (!form?.audio?.length || !expected || expected.length > 80) return send(res, 400, { error: 'bad request' });
-    send(res, 200, await assess(await toWav(form.audio), expected, alternatives));
+    if (!form?.audio?.length || !expected || expected.length > 80) {
+      console.error(`Голос: неполный запрос (запись ${form?.audio?.length ?? 0} байт, ответ «${expected ?? ''}»)`);
+      return send(res, 400, { error: 'bad request' });
+    }
+    const result = await assess(await toWav(form.audio), expected, alternatives);
+    // Видно в окне сервера: помогает подобрать PASS_SCORE
+    console.log(
+      result.status === 'checked'
+        ? `Голос: нужно «${expected}», услышано «${result.heard}», похоже на ${result.score}% → ${result.correct ? 'верно' : 'неверно'}`
+        : `Голос: нужно «${expected}», речь не расслышана`,
+    );
+    send(res, 200, result);
   } catch (error) {
     if (error.code === 413) return send(res, 413, { error: 'too large' });
     console.error(error.message);

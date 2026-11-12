@@ -17,6 +17,13 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<Extract<VoiceResult, { status: 'checked' }> | null>(null);
+  // Точная причина сбоя: по ней видно, где сломалось
+  const [detail, setDetail] = useState('');
+  const fail = (text: string) => {
+    setDetail(text);
+    setPhase('unavailable');
+  };
+  const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const finishRecording = async () => {
@@ -25,17 +32,24 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
     setPhase('checking');
     try {
       await recorder.stop();
+    } catch (error) {
+      fail(`запись не остановилась: ${reason(error)}`);
+      return;
+    }
+    try {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       const checked = await checkVoice(recorder.uri ?? '', task.expected, task.isLetter ? [task.ar] : []);
       if (checked.status === 'checked') {
         playSfx(checked.correct ? 'right' : 'wrong');
         setResult(checked);
         setPhase('done');
+      } else if (checked.status === 'unavailable') {
+        fail(checked.detail ?? '');
       } else {
         setPhase(checked.status);
       }
-    } catch {
-      setPhase('unavailable');
+    } catch (error) {
+      fail(reason(error));
     }
   };
 
@@ -51,8 +65,8 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
       recorder.record();
       setPhase('recording');
       timer.current = setTimeout(finishRecording, MAX_RECORD_MS);
-    } catch {
-      setPhase('unavailable');
+    } catch (error) {
+      fail(`микрофон не включился: ${reason(error)}`);
     }
   };
 
@@ -71,7 +85,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
     checking: 'Проверяю произношение',
     silent: 'Голос не расслышан. Скажите громче и ближе к телефону.',
     denied: 'Нет доступа к микрофону. Разрешите его в настройках телефона.',
-    unavailable: 'Сейчас не удалось проверить голос. Проверьте интернет.',
+    unavailable: 'Сейчас не удалось проверить голос.',
   };
   const canSkip = phase === 'denied' || phase === 'unavailable' || phase === 'idle' || phase === 'silent';
 
@@ -116,6 +130,11 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
             )}
           </Pressable>
           {message[phase] ? <T tone="muted" style={{ textAlign: 'center' }} testID={`speak-${phase}`}>{message[phase]}</T> : null}
+          {phase === 'unavailable' && detail ? (
+            <T size={12} tone="muted" style={{ textAlign: 'center' }} testID="speak-detail">
+              Причина: {detail}
+            </T>
+          ) : null}
         </View>
         <T size={12} tone="muted" style={{ textAlign: 'center', marginTop: 'auto' }}>
           Запись отправляется на проверку в сервис распознавания речи Microsoft и не хранится.

@@ -28,11 +28,12 @@ export const voiceReady = () => (E2E ? voiceEnabled : voiceEnabled && serverVoic
 export type VoiceResult =
   | { status: 'checked'; correct: boolean; score: number; heard?: string }
   | { status: 'silent' }
-  | { status: 'unavailable' };
+  | { status: 'unavailable'; detail?: string };
 
 /** alternatives: что ещё считать верным, например саму букву вместо её названия */
 export async function checkVoice(uri: string, expected: string, alternatives: string[] = []): Promise<VoiceResult> {
   if (E2E && testWindow?.__voice) return testWindow.__voice as VoiceResult;
+  if (!uri) return { status: 'unavailable', detail: 'запись не сохранилась' };
   try {
     const form = new FormData();
     form.append('expected', expected);
@@ -44,10 +45,10 @@ export async function checkVoice(uri: string, expected: string, alternatives: st
       headers: { 'x-app-token': SERVER_TOKEN },
       body: form,
     });
-    if (!response.ok) return { status: 'unavailable' };
+    if (!response.ok) return { status: 'unavailable', detail: `ответ сервера ${response.status}` };
     const data = (await response.json()) as VoiceResult;
-    return data.status === 'checked' || data.status === 'silent' ? data : { status: 'unavailable' };
-  } catch {
-    return { status: 'unavailable' };
+    return data.status === 'checked' || data.status === 'silent' ? data : { status: 'unavailable', detail: 'странный ответ сервера' };
+  } catch (error) {
+    return { status: 'unavailable', detail: `нет связи: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
