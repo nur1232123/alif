@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
 
 /** Голос работает в приложении на телефоне, когда указан адрес сервера */
@@ -38,8 +39,8 @@ export async function checkVoice(uri: string, expected: string, alternatives: st
     const form = new FormData();
     form.append('expected', expected);
     if (alternatives.length) form.append('alt', alternatives.join('|'));
-    // В React Native файл передаётся объектом с адресом на устройстве
-    form.append('audio', { uri, name: 'voice.m4a', type: 'audio/mp4' } as unknown as Blob);
+    // fetch в Expo принимает файл с телефона только как File из expo-file-system
+    form.append('audio', new File(uri), 'voice.m4a');
     const response = await fetch(`${SERVER_URL}/check`, {
       method: 'POST',
       headers: { 'x-app-token': SERVER_TOKEN },
