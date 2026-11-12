@@ -72,7 +72,7 @@ function SpeakStep({ task, value, total, last, onDone, onSkip, testID }: StepPro
 function Stat({ value, label }: { value: string; label: string }) {
   const c = useColors();
   return (
-    <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 2, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: c.line, backgroundColor: c.surface }}>
+    <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 2, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow }}>
       <T size={22} weight="bold" tone="accent">{value}</T>
       <T size={13} tone="muted" style={{ textAlign: 'center' }}>{label}</T>
     </View>
@@ -83,7 +83,7 @@ function Failed({ score, total, onRetry }: { score: number; total: number; onRet
   return (
     <Screen footer={<><Button label="Сдать ещё раз" onPress={onRetry} testID="retry" /><Button label="На главную" kind="quiet" onPress={() => router.replace('/')} testID="finish" /></>} testID="result-fail">
       <View style={{ flex: 1, justifyContent: 'center', gap: 10 }}>
-        <T size={26} weight="bold" style={{ lineHeight: 34 }}>Почти получилось</T>
+        <T size={24} weight="bold" style={{ lineHeight: 32 }}>Почти получилось</T>
         <T size={18}>Верных ответов: {score} из {total}. Нужно {passMark(total)}.</T>
         <T tone="muted">Потренируйтесь и попробуйте снова. Попытки не ограничены.</T>
       </View>
@@ -101,7 +101,7 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
     return (
       <Screen footer={<Button label="На главную" onPress={() => router.replace('/')} testID="finish" />} testID="result-practice">
         <View style={{ flex: 1, justifyContent: 'center', gap: 10 }}>
-          <T size={26} weight="bold" style={{ lineHeight: 34 }}>Хорошая тренировка, {name}</T>
+          <T size={24} weight="bold" style={{ lineHeight: 32 }}>Хорошая тренировка, {name}</T>
           <T size={18}>Верных ответов: {score} из {total}.</T>
           <T tone="muted">Ошибки вернутся в следующей тренировке.</T>
         </View>
@@ -161,7 +161,7 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
             <T size={32} weight="bold" style={{ color: c.onAccent, lineHeight: 40 }}>✓</T>
           </Khatam>
         )}
-        <T size={28} weight="bold" style={{ lineHeight: 36, textAlign: 'center' }}>{heading}</T>
+        <T size={24} weight="bold" style={{ lineHeight: 32, textAlign: 'center' }}>{heading}</T>
         <T size={17} style={{ textAlign: 'center', lineHeight: 25 }}>{line}</T>
         <View style={{ flexDirection: 'row', gap: 10, alignSelf: 'stretch' }}>
           <Stat value={`${accuracy}%`} label={mistakes ? `ошибок: ${mistakes}` : 'без ошибок'} />

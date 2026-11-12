@@ -57,7 +57,7 @@ const script = result.outputFiles[0].text.replaceAll('</script', '<\\/script');
 const fonts = [
   ['GolosText_400Regular', 'golos-text/400Regular/GolosText_400Regular.ttf', 'U+0020-007E,U+00A0-00FF,U+0400-04FF,U+2010-2027,U+203A,U+2039,U+2713'],
   ['GolosText_500Medium', 'golos-text/500Medium/GolosText_500Medium.ttf', 'U+0020-007E,U+00A0-00FF,U+0400-04FF,U+2010-2027,U+203A,U+2039,U+2713'],
-  ['GolosText_700Bold', 'golos-text/700Bold/GolosText_700Bold.ttf', 'U+0020-007E,U+00A0-00FF,U+0400-04FF,U+2010-2027,U+203A,U+2039,U+2713'],
+  ['GolosText_600SemiBold', 'golos-text/600SemiBold/GolosText_600SemiBold.ttf', 'U+0020-007E,U+00A0-00FF,U+0400-04FF,U+2010-2027,U+203A,U+2039,U+2713'],
   ['ScheherazadeNew_400Regular', 'scheherazade-new/400Regular/ScheherazadeNew_400Regular.ttf', 'U+0020,U+002E,U+0600-06FF,U+200C-200F,U+FB50-FDFF,U+FE70-FEFF'],
   ['ScheherazadeNew_700Bold', 'scheherazade-new/700Bold/ScheherazadeNew_700Bold.ttf', 'U+0020,U+002E,U+0600-06FF,U+200C-200F,U+FB50-FDFF,U+FE70-FEFF'],
 ];

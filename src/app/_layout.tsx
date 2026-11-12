@@ -1,6 +1,6 @@
 import { GolosText_400Regular } from '@expo-google-fonts/golos-text/400Regular';
 import { GolosText_500Medium } from '@expo-google-fonts/golos-text/500Medium';
-import { GolosText_700Bold } from '@expo-google-fonts/golos-text/700Bold';
+import { GolosText_600SemiBold } from '@expo-google-fonts/golos-text/600SemiBold';
 import { ScheherazadeNew_400Regular } from '@expo-google-fonts/scheherazade-new/400Regular';
 import { ScheherazadeNew_700Bold } from '@expo-google-fonts/scheherazade-new/700Bold';
 import { setAudioModeAsync } from 'expo-audio';
@@ -54,7 +54,7 @@ export default function RootLayout() {
   const [loaded, failed] = useFonts({
     GolosText_400Regular,
     GolosText_500Medium,
-    GolosText_700Bold,
+    GolosText_600SemiBold,
     ScheherazadeNew_400Regular,
     ScheherazadeNew_700Bold,
   });

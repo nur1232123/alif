@@ -27,7 +27,7 @@ function WeekBanner({ week }: { week: Week }) {
   const c = useColors();
   const stage = getStage(week.stageId)!;
   return (
-    <View style={{ height: BANNER - 16, marginBottom: 16, borderRadius: 16, borderBottomWidth: 4, borderBottomColor: c.gold, backgroundColor: c.accent, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+    <View style={{ height: BANNER - 16, marginBottom: 16, borderRadius: 20, backgroundColor: c.accent, boxShadow: c.lift, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <T size={13} weight="medium" style={{ color: c.onAccent, opacity: 0.85 }}>Этап {stage.id} · неделя {week.n}</T>
         <T size={19} weight="bold" style={{ color: c.onAccent, lineHeight: 25 }}>{week.title}</T>
@@ -179,7 +179,7 @@ function LetterSheet({ letter, onClose }: { letter: Item; onClose: () => void })
               accessibilityRole="button"
               accessibilityLabel={`Слушать слово: ${letter.example.ru}`}
               onPress={() => say(letter.example!.ar)}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 12, borderWidth: 2, borderColor: c.line, opacity: pressed ? 0.75 : 1 })}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: c.line, opacity: pressed ? 0.75 : 1 })}
             >
               <PlayGlyph color={c.accent} size={11} />
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -206,7 +206,7 @@ function LettersTab() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="letters-tab">
-        <T size={26} weight="bold" style={{ lineHeight: 34 }}>Буквы</T>
+        <T size={24} weight="bold" style={{ lineHeight: 32 }}>Буквы</T>
         <View style={{ gap: 6 }}>
           <T tone="muted" size={14}>Выучено {learned} из 28. Нажмите на букву, чтобы услышать её и посмотреть формы.</T>
           <ProgressBar value={learned} total={28} />
@@ -231,15 +231,15 @@ function LettersTab() {
                   alignItems: 'center',
                   paddingTop: 4,
                   paddingBottom: 8,
-                  borderRadius: 14,
-                  borderWidth: 2,
-                  borderBottomWidth: 4,
+                  borderRadius: 16,
+                  borderWidth: isKnown ? 1.5 : 1,
                   borderColor: isKnown ? c.gold : c.line,
                   backgroundColor: c.surface,
-                  opacity: pressed ? 0.75 : 1,
+                  boxShadow: c.shadow,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
                 })}
               >
-                <Ar size={38} style={{ lineHeight: 64 }}>{letter.ar}</Ar>
+                <Ar size={40} bold style={{ lineHeight: 66 }}>{letter.ar}</Ar>
                 <T size={12} tone={isKnown ? 'ink' : 'muted'} weight={isKnown ? 'medium' : 'regular'} style={{ textAlign: 'center' }}>{letter.ru}</T>
               </Pressable>
             );
@@ -260,12 +260,12 @@ function PracticeTab() {
   const newest = [...items].reverse().slice(0, 120);
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="practice-tab">
-      <T size={26} weight="bold" style={{ lineHeight: 34 }}>Тренировка</T>
+      <T size={24} weight="bold" style={{ lineHeight: 32 }}>Тренировка</T>
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push('/tutor')}
           testID="open-tutor"
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: c.line, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow, opacity: pressed ? 0.8 : 1 })}
         >
           <Khatam size={44} fill={c.gold}>
             <T size={18} weight="bold" style={{ color: c.onAccent }}>؟</T>
@@ -279,7 +279,7 @@ function PracticeTab() {
         <T tone="muted">Пройдите первый урок, и здесь появится всё, что вы выучили.</T>
       ) : (
         <>
-          <View style={{ gap: 10, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: c.line, backgroundColor: c.surface }}>
+          <View style={{ gap: 10, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow }}>
             <T size={18} weight="bold" testID="due-count">{due > 0 ? `Пора повторить: ${due}` : weak > 0 ? `Слабых мест: ${weak}` : 'Всё повторено'}</T>
             <T tone="muted" size={14}>
               {due > 0
@@ -315,7 +315,7 @@ function PracticeTab() {
 function Stat({ value, label }: { value: string; label: string }) {
   const c = useColors();
   return (
-    <View style={{ flexGrow: 1, flexBasis: '45%', gap: 2, padding: 14, borderRadius: 14, borderWidth: 2, borderColor: c.line, backgroundColor: c.surface }}>
+    <View style={{ flexGrow: 1, flexBasis: '45%', gap: 2, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow }}>
       <T size={22} weight="bold">{value}</T>
       <T size={13} tone="muted">{label}</T>
     </View>
@@ -349,13 +349,13 @@ function SettingsBlock() {
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: active ? c.accent : c.line,
     backgroundColor: active ? c.soft : c.surface,
   });
   return (
-    <View style={{ gap: 4, padding: 16, borderRadius: 16, borderWidth: 2, borderColor: c.line, backgroundColor: c.surface }} testID="settings">
+    <View style={{ gap: 4, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow }} testID="settings">
       <T size={18} weight="bold">Настройки</T>
       <T style={{ marginTop: 8 }}>Цель дня</T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
@@ -398,7 +398,7 @@ function SettingsBlock() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setReminder(true, h)}
-                    style={{ minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 2, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.soft : c.surface }}
+                    style={{ minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, borderWidth: 1.5, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.soft : c.surface }}
                   >
                     <T weight={active ? 'bold' : 'regular'}>{h}:00</T>
                   </Pressable>
@@ -423,7 +423,7 @@ function ProfileTab() {
   const Footer = slots.homeFooter;
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="profile-tab">
-      <T size={26} weight="bold" style={{ lineHeight: 34 }}>{progress.name}</T>
+      <T size={24} weight="bold" style={{ lineHeight: 32 }}>{progress.name}</T>
       <View style={{ gap: 6 }}>
         <T tone="muted" size={14}>Курс рассчитан на год при {LESSONS_PER_DAY} уроках в день</T>
         <ProgressBar value={doneCount} total={TOTAL_LESSONS} thick />
@@ -442,7 +442,50 @@ function ProfileTab() {
   );
 }
 
-function TabButton({ label, active, onPress, id }: { label: string; active: boolean; onPress: () => void; id: string }) {
+type TabKind = 'path' | 'letters' | 'practice' | 'tutor' | 'profile';
+
+/** Простые значки вкладок, нарисованные без картинок: так они одинаково выглядят на всех телефонах */
+function TabIcon({ kind, color, back }: { kind: TabKind; color: string; back: string }) {
+  const box = { width: 26, height: 24, alignItems: 'center' as const, justifyContent: 'center' as const };
+  if (kind === 'path') return <View style={box}><Khatam size={20} fill={color} /></View>;
+  if (kind === 'letters') {
+    return (
+      <View style={box}>
+        <Text style={{ color, fontFamily: fonts.arabicBold, fontSize: 22, lineHeight: 30, marginTop: -6 }}>ب</Text>
+      </View>
+    );
+  }
+  if (kind === 'practice') {
+    // Мишень
+    return (
+      <View style={box}>
+        <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+        </View>
+      </View>
+    );
+  }
+  if (kind === 'tutor') {
+    // Облачко разговора
+    return (
+      <View style={box}>
+        <View style={{ width: 22, height: 16, borderRadius: 6, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2.5 }}>
+          {[0, 1, 2].map((i) => <View key={i} style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: back }} />)}
+        </View>
+        <View style={{ position: 'absolute', left: 5, bottom: 1, width: 0, height: 0, borderTopWidth: 5, borderRightWidth: 5, borderTopColor: color, borderRightColor: 'transparent' }} />
+      </View>
+    );
+  }
+  // Профиль: голова и плечи
+  return (
+    <View style={[box, { justifyContent: 'flex-end', gap: 2 }]}>
+      <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: color }} />
+      <View style={{ width: 18, height: 8, borderTopLeftRadius: 9, borderTopRightRadius: 9, backgroundColor: color, marginBottom: 1 }} />
+    </View>
+  );
+}
+
+function TabButton({ label, active, onPress, id, kind }: { label: string; active: boolean; onPress: () => void; id: string; kind: TabKind }) {
   const c = useColors();
   return (
     <Pressable
@@ -450,10 +493,10 @@ function TabButton({ label, active, onPress, id }: { label: string; active: bool
       accessibilityState={{ selected: active }}
       onPress={onPress}
       testID={id}
-      style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4 }}
+      style={{ flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 3 }}
     >
-      <Khatam size={16} fill={active ? c.accent : c.line} />
-      <T size={12} weight={active ? 'bold' : 'regular'} tone={active ? 'accent' : 'muted'}>{label}</T>
+      <TabIcon kind={kind} color={active ? c.accent : c.muted} back={c.surface} />
+      <T size={11} weight={active ? 'bold' : 'medium'} tone={active ? 'accent' : 'muted'}>{label}</T>
     </Pressable>
   );
 }
@@ -468,7 +511,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: c.bg }} testID="home">
       <View style={{ paddingTop: insets.top + 12, paddingBottom: 10, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line }}>
         <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <T size={17} weight="bold" style={{ flex: 1, minWidth: 0 }} testID="greeting">
+          <T size={16} weight="bold" lines={1} style={{ flex: 1, minWidth: 0 }} testID="greeting">
             {isNewUser ? `Добро пожаловать, ${progress.name}` : `С возвращением, ${progress.name}`}
           </T>
           <T size={15} weight="bold" tone="accent" testID="today">{Math.min(todayCount, progress.settings.dailyGoal)}/{progress.settings.dailyGoal}</T>
@@ -481,11 +524,11 @@ export default function Home() {
       </View>
       <View style={{ paddingBottom: insets.bottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line, backgroundColor: c.surface }}>
         <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', flexDirection: 'row' }}>
-          <TabButton id="tab-path" label="Путь" active={tab === 'path'} onPress={() => setTab('path')} />
-          <TabButton id="tab-letters" label="Буквы" active={tab === 'letters'} onPress={() => setTab('letters')} />
-          <TabButton id="tab-practice" label="Тренировка" active={tab === 'practice'} onPress={() => setTab('practice')} />
-          <TabButton id="tab-tutor" label="Учитель" active={false} onPress={() => router.push('/tutor')} />
-          <TabButton id="tab-profile" label="Профиль" active={tab === 'profile'} onPress={() => setTab('profile')} />
+          <TabButton id="tab-path" kind="path" label="Путь" active={tab === 'path'} onPress={() => setTab('path')} />
+          <TabButton id="tab-letters" kind="letters" label="Буквы" active={tab === 'letters'} onPress={() => setTab('letters')} />
+          <TabButton id="tab-practice" kind="practice" label="Тренировка" active={tab === 'practice'} onPress={() => setTab('practice')} />
+          <TabButton id="tab-tutor" kind="tutor" label="Учитель" active={false} onPress={() => router.push('/tutor')} />
+          <TabButton id="tab-profile" kind="profile" label="Профиль" active={tab === 'profile'} onPress={() => setTab('profile')} />
         </View>
       </View>
     </View>

@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import type { SpeakTask } from '@/lib/plan';
 import { playSfx } from '@/lib/sfx';
 import { checkVoice, type VoiceResult } from '@/lib/voice';
-import { Ar, Button, T } from './kit';
+import { Ar, Button, GlyphCard, T } from './kit';
 import type { Slots } from './tasks';
 import { useColors } from './theme';
 
@@ -95,9 +95,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
         <T size={20} weight="bold" style={{ lineHeight: 28 }}>
           {task.isLetter ? 'Скажите название этой буквы' : 'Прочитайте вслух'}
         </T>
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          <Ar size={task.ar.length <= 4 ? 96 : task.ar.length <= 14 ? 52 : 32}>{task.ar}</Ar>
-        </View>
+        <GlyphCard text={task.ar} />
         <View style={{ alignItems: 'center', gap: 12 }}>
           <Pressable
             accessibilityRole="button"
@@ -106,14 +104,15 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
             onPress={recording ? finishRecording : start}
             testID="mic"
             style={({ pressed }) => ({
-              width: 104,
-              height: 104,
-              borderRadius: 52,
+              width: 96,
+              height: 96,
+              borderRadius: 48,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: recording ? c.bad : c.accent,
-              borderBottomWidth: pressed ? 0 : 6,
-              borderBottomColor: c.ink + '33',
+              // Во время записи вокруг кнопки мягкое кольцо
+              boxShadow: recording ? `0px 0px 0px 10px ${c.badSoft}` : pressed ? undefined : c.lift,
+              transform: [{ scale: pressed ? 0.96 : 1 }],
               opacity: phase === 'done' ? 0.4 : 1,
             })}
           >

@@ -45,9 +45,11 @@ export function Screen({ children, footer, testID }: { children: ReactNode; foot
   );
 }
 
-export function T({ children, style, tone = 'ink', weight = 'regular', size = 16, testID }: {
+export function T({ children, style, tone = 'ink', weight = 'regular', size = 16, testID, lines }: {
   children: ReactNode;
   testID?: string;
+  /** Обрезать текст до стольких строк с многоточием */
+  lines?: number;
   style?: TextStyle;
   tone?: 'ink' | 'muted' | 'accent' | 'good' | 'bad' | 'gold';
   weight?: 'regular' | 'medium' | 'bold';
@@ -55,7 +57,7 @@ export function T({ children, style, tone = 'ink', weight = 'regular', size = 16
 }) {
   const c = useColors();
   return (
-    <Text testID={testID} style={[{ color: c[tone], fontFamily: fonts[weight], fontSize: size, lineHeight: Math.round(size * 1.4) }, style]}>
+    <Text testID={testID} numberOfLines={lines} style={[{ color: c[tone], fontFamily: fonts[weight], fontSize: size, lineHeight: Math.round(size * 1.4) }, style]}>
       {children}
     </Text>
   );
@@ -102,16 +104,17 @@ export function Button({ label, onPress, kind = 'primary', tone, disabled, testI
       onPress={onPress}
       testID={testID}
       style={({ pressed }) => ({
-        minHeight: 54,
+        minHeight: 52,
         paddingHorizontal: 20,
         paddingVertical: 12,
-        borderRadius: 14,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: primary ? fill : 'transparent',
-        borderWidth: primary ? 0 : 2,
-        borderBottomWidth: pressed ? 2 : 4,
-        borderColor: primary ? c.ink + '33' : c.line,
+        backgroundColor: primary ? fill : c.surface,
+        borderWidth: primary ? 0 : 1.5,
+        borderColor: c.line,
+        boxShadow: primary && !disabled && !pressed ? c.lift : undefined,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
         opacity: disabled ? 0.4 : 1,
       })}
     >
@@ -181,6 +184,19 @@ export function ListenButton({ text, label = 'Слушать', testID }: { text:
 
 export { PlayGlyph };
 
+/** Карточка с крупной арабской буквой или словом: главное на экране задания */
+export function GlyphCard({ text, children }: { text: string; children?: ReactNode }) {
+  const c = useColors();
+  const short = text.length <= 4;
+  const size = short ? 120 : text.length <= 14 ? 54 : 32;
+  return (
+    <View style={{ alignSelf: 'stretch', alignItems: 'center', gap: 6, paddingVertical: short ? 4 : 16, paddingHorizontal: 16, borderRadius: 24, backgroundColor: c.soft }}>
+      <Ar size={size} bold={short} style={{ lineHeight: Math.round(size * (short ? 1.55 : 1.75)) }}>{text}</Ar>
+      {children}
+    </View>
+  );
+}
+
 /** Восьмиконечная звезда зеллиджа: два квадрата, один повёрнут на 45° */
 export function Khatam({ size, fill, children }: { size: number; fill: string; children?: ReactNode }) {
   const side = size * 0.72;
@@ -195,12 +211,13 @@ export function Khatam({ size, fill, children }: { size: number; fill: string; c
 }
 
 export function ProgressBar({ value, total, thick }: { value: number; total: number; thick?: boolean }) {
+  // Толстая полоса в уроке: 10 пикселей, тонкая в профиле: 6
   const c = useColors();
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: total, now: value }}
-      style={{ height: thick ? 12 : 6, borderRadius: thick ? 6 : 3, backgroundColor: c.line, overflow: 'hidden' }}
+      style={{ height: thick ? 10 : 6, borderRadius: thick ? 5 : 3, backgroundColor: c.line, overflow: 'hidden' }}
     >
       <View style={{ height: '100%', width: `${(value / total) * 100}%`, backgroundColor: c.accent }} />
     </View>

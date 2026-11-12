@@ -4,7 +4,7 @@ import type { BuildTask, ChoiceTask, IntroTask, MatchTask, Option, ReadTask, Tip
 import { playSfx } from '@/lib/sfx';
 import { say, sayAll } from '@/lib/speech';
 import { askTutor, TUTOR_ERRORS, tutorEnabled } from '@/lib/tutor';
-import { Ar, Button, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
+import { Ar, Button, GlyphCard, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
 import { fonts, useColors } from './theme';
 
 const E2E = process.env.EXPO_PUBLIC_E2E === '1';
@@ -87,7 +87,7 @@ export function useTip(task: TipTask, onDone: () => void): Slots {
           <T size={26} weight="bold" style={{ color: c.onAccent, lineHeight: 32 }}>!</T>
         </Khatam>
         <T size={13} weight="bold" tone="accent">ПРАВИЛО НЕДЕЛИ</T>
-        <T size={24} weight="bold" style={{ lineHeight: 32 }}>{task.title}</T>
+        <T size={22} weight="bold" style={{ lineHeight: 30 }}>{task.title}</T>
         <T size={18} style={{ lineHeight: 28 }}>{task.text}</T>
         <VoiceNotice />
       </View>
@@ -99,7 +99,7 @@ export function useTip(task: TipTask, onDone: () => void): Slots {
 export function useIntro(task: IntroTask, onDone: () => void): Slots {
   const c = useColors();
   const { item } = task;
-  const glyph = item.ar.length <= 4 ? 112 : item.ar.length <= 10 ? 60 : 38;
+  const glyph = item.ar.length <= 4 ? 120 : item.ar.length <= 10 ? 60 : 38;
   useEffect(() => {
     say(item.say);
   }, [item]);
@@ -107,8 +107,8 @@ export function useIntro(task: IntroTask, onDone: () => void): Slots {
     body: (
       <View style={{ gap: 14 }}>
         <T size={13} weight="bold" tone="accent">НОВОЕ</T>
-        <View style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, borderColor: c.line, paddingVertical: 18, paddingHorizontal: 16, gap: 8, alignItems: 'center' }}>
-          <Ar size={glyph}>{item.ar}</Ar>
+        <View style={{ backgroundColor: c.surface, borderRadius: 24, borderWidth: 1, borderColor: c.line, boxShadow: c.shadow, paddingVertical: 18, paddingHorizontal: 16, gap: 8, alignItems: 'center' }}>
+          <Ar size={glyph} bold={item.ar.length <= 4} style={item.ar.length <= 4 ? { lineHeight: Math.round(glyph * 1.55) } : undefined}>{item.ar}</Ar>
           <T size={20} weight="bold" style={{ textAlign: 'center' }}>{item.ru}</T>
           <ListenButton text={item.say} testID="listen" />
         </View>
@@ -245,12 +245,12 @@ function OptionCard({ option, index, task, selected, checked, noVoice, onPress }
         gap: 12,
         paddingHorizontal: 16,
         paddingVertical: 6,
-        borderRadius: 14,
-        borderWidth: 2,
-        borderBottomWidth: 4,
+        borderRadius: 16,
+        borderWidth: 1.5,
         borderColor: border,
         backgroundColor: bg,
-        opacity: pressed ? 0.8 : 1,
+        boxShadow: selected || checked ? undefined : c.shadow,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
       })}
     >
       {audioOnly ? (
@@ -290,7 +290,7 @@ export function useChoice(task: ChoiceTask, last: boolean, onDone: (correct: boo
         <T size={20} weight="bold" style={{ lineHeight: 28 }}>{HEADINGS[task.kind]}</T>
         <VoiceNotice />
         <View style={{ alignItems: 'center', gap: 6 }}>
-          {task.ar ? <Ar size={task.ar.length <= 4 ? 88 : task.ar.length <= 14 ? 48 : 30}>{task.ar}</Ar> : null}
+          {task.ar ? <GlyphCard text={task.ar} /> : null}
           {onlySound && noVoice ? <Ar size={36}>{task.say}</Ar> : null}
           {task.ru ? <T size={20} weight="medium" style={{ textAlign: 'center' }}>{task.ru}</T> : null}
           {task.say ? <ListenButton text={task.say} label={onlySound ? 'Послушать ещё раз' : 'Слушать'} testID="listen" /> : null}
@@ -341,12 +341,12 @@ function Tile({ text, used, onPress, testID, arabic }: { text: string; used?: bo
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 12,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderBottomWidth: used ? 2 : 4,
+        borderRadius: 14,
+        borderWidth: 1.5,
         borderColor: c.line,
         backgroundColor: used ? c.line : c.surface,
-        opacity: pressed ? 0.8 : 1,
+        boxShadow: used ? undefined : c.shadow,
+        opacity: used ? 0.5 : pressed ? 0.8 : 1,
       })}
     >
       {used ? (
@@ -392,9 +392,9 @@ export function useMatch(task: MatchTask, last: boolean, onDone: () => void): Sl
     justifyContent: 'center' as const,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderBottomWidth: 4,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    boxShadow: active || isWrong || gone ? undefined : c.shadow,
     borderColor: isWrong ? c.bad : active ? c.accent : c.line,
     backgroundColor: gone ? c.goodSoft : isWrong ? c.badSoft : active ? c.soft : c.surface,
     opacity: gone ? 0.5 : 1,
