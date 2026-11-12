@@ -421,7 +421,7 @@ export function useMatch(task: MatchTask, last: boolean, onDone: () => void): Sl
               const gone = solved.includes(x.id);
               return (
                 <Pressable key={x.id} accessibilityRole="button" disabled={gone} onPress={() => pickLeft(x.id, x.say)} testID={E2E ? `match-ar-${x.id}` : undefined} style={cell(picked === x.id, false, gone)}>
-                  <Ar size={x.ar.length > 12 ? 20 : 26} style={{ lineHeight: 40 }}>{x.ar}</Ar>
+                  <Ar size={x.ar.length <= 4 ? 34 : x.ar.length > 12 ? 20 : 26} bold={x.ar.length <= 4} style={{ lineHeight: x.ar.length <= 4 ? 52 : 40 }}>{x.ar}</Ar>
                 </Pressable>
               );
             })}

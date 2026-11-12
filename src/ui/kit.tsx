@@ -63,6 +63,11 @@ export function T({ children, style, tone = 'ink', weight = 'regular', size = 16
   );
 }
 
+// У шрифта Scheherazade запас над буквами (под огласовки) почти вдвое больше, чем под ними:
+// 1,34 и 0,70 высоты шрифта. Строка центрируется по этим запасам, и буквы оказываются ниже середины.
+// Поднимаем текст на эту разницу, чтобы буквы стояли по центру плиток и карточек.
+const AR_LIFT = 0.15;
+
 /** Арабский текст: большая высота строки, иначе огласовки обрезаются */
 export function Ar({ children, size = 32, style, bold }: { children: ReactNode; size?: number; style?: TextStyle; bold?: boolean }) {
   const c = useColors();
@@ -76,6 +81,8 @@ export function Ar({ children, size = 32, style, bold }: { children: ReactNode; 
           lineHeight: Math.round(size * 1.75),
           writingDirection: 'rtl',
           textAlign: 'center',
+          includeFontPadding: false,
+          transform: [{ translateY: -Math.round(size * AR_LIFT) }],
         },
         style,
       ]}
