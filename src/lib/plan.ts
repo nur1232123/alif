@@ -309,7 +309,7 @@ function matchTask(items: Item[], random: () => number, key: string): MatchTask 
 }
 
 /** Урок с новым: каждое новое показываем и сразу проверяем, потом повторяем пройденное */
-function introLesson(week: Week, chunkIndex: number, random: () => number): Task[] {
+function introLesson(week: Week, chunkIndex: number, random: () => number, voice = false): Task[] {
   const chunks = introChunks(week);
   const fresh = chunks[chunkIndex];
   const before = chunks.slice(0, chunkIndex).flat();
@@ -320,6 +320,8 @@ function introLesson(week: Week, chunkIndex: number, random: () => number): Task
   fresh.forEach((item, i) => {
     tasks.push({ type: 'intro', key: `intro-${item.id}`, item });
     tasks.push(choice(item, first[i % first.length], pool, i, random));
+    // Сразу после знакомства ученик произносит новое вслух
+    if (voice && canSay(item)) tasks.push(speakTask(item, 50 + i, week));
   });
   // Слово-пример: с какой буквы начинается
   if (week.kind === 'letters') fresh.forEach((item, i) => tasks.push(choice(item, 'first-letter', pool, 10 + i, random)));
@@ -405,6 +407,27 @@ function readTask(week: Week): ReadTask {
 
 function speakTask(item: Item, index: number, week: Week): SpeakTask {
   return { type: 'speak', key: `${index}-speak-${item.id}`, itemId: item.id, ar: item.ar, ru: item.ru, expected: item.say, isLetter: week.kind === 'letters' };
+}
+
+/** Голосом проверяем буквы, слоги и короткие слова: длинную фразу трудно сказать за 4 секунды */
+const canSay = (item: Item) => item.say.length > 0 && item.say.length <= 24;
+
+/** В тренировках и чтении меняем пару заданий с выбором на голосовые */
+function sprinkleVoice(tasks: Task[], week: Week, count: number): Task[] {
+  const known = new Map([...week.items, ...poolFor(week), ...lineItems(week)].map((x) => [x.id, x] as const));
+  const spots = tasks
+    .map((task, i) => ({ task, i }))
+    .filter(({ task, i }) => {
+      const item = task.type === 'choice' && task.itemId ? known.get(task.itemId) : undefined;
+      return i > 0 && item !== undefined && canSay(item);
+    });
+  if (!spots.length) return tasks;
+  // Равномерно по уроку, а не подряд
+  const picked = new Set(Array.from({ length: Math.min(count, spots.length) }, (_, k) => spots[Math.floor(((k + 0.5) * spots.length) / Math.min(count, spots.length))].i));
+  return tasks.map((task, i) => {
+    const item = picked.has(i) && task.type === 'choice' && task.itemId ? known.get(task.itemId) : undefined;
+    return item ? speakTask(item, i, week) : task;
+  });
 }
 
 function withVoice(tasks: Task[], items: Item[], week: Week, voice: boolean): Task[] {
@@ -513,15 +536,16 @@ export function buildLesson(ref: LessonRef, random = Math.random, voice = false)
   let body: Task[];
   switch (spec.kind) {
     case 'intro':
-      body = introLesson(week, spec.chunk, random);
+      body = introLesson(week, spec.chunk, random, voice);
       break;
     case 'checkpoint':
       return checkpointTasks(week, spec.from, spec.to, random, voice);
     case 'practice':
-      body = practiceLesson(week, spec.mode, random);
+      body = voice ? sprinkleVoice(practiceLesson(week, spec.mode, random), week, 2) : practiceLesson(week, spec.mode, random);
       break;
     case 'reading':
       body = spec.slot === 1 && spec.day < DAYS_PER_WEEK ? readingFirst(week, spec.day, random) : readingExtra(week, spec.day, spec.slot, random);
+      if (voice) body = sprinkleVoice(body, week, 2);
       break;
     default:
       return examTasks(week, random, voice);
