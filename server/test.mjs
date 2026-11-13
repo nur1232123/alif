@@ -27,10 +27,19 @@ const audio = readFileSync(m4a);
 
 let reply = null;
 let seen = null;
+// Подменённый RevenueCat: какой ответ отдать про Премиум
+let rc = { code: 200, body: { subscriber: { entitlements: {} } } };
+let rcSeen = null;
 const azure = createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
+    if (req.url.startsWith('/rc/')) {
+      rcSeen = { url: req.url, headers: req.headers };
+      res.writeHead(rc.code, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(rc.body));
+      return;
+    }
     seen = { url: req.url, headers: req.headers, body: Buffer.concat(chunks) };
     res.writeHead(reply.code ?? 200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(reply.body));
@@ -39,7 +48,19 @@ const azure = createServer((req, res) => {
 await new Promise((r) => azure.listen(9791, r));
 
 const app = spawn('node', ['server/server.mjs'], {
-  env: { ...process.env, PORT: '9792', AZURE_STT_URL: 'http://127.0.0.1:9791/stt', AZURE_KEY: 'test-key', APP_TOKEN: 'tok', GEMINI_API_KEY: 'g-key', GEMINI_URL: 'http://127.0.0.1:9791/gemini' },
+  env: {
+    ...process.env,
+    PORT: '9792',
+    AZURE_STT_URL: 'http://127.0.0.1:9791/stt',
+    AZURE_KEY: 'test-key',
+    APP_TOKEN: 'tok',
+    GEMINI_API_KEY: 'g-key',
+    GEMINI_URL: 'http://127.0.0.1:9791/gemini',
+    TESTER_KEY: 'tester',
+    REVENUECAT_SECRET: 'rc-secret',
+    REVENUECAT_URL: 'http://127.0.0.1:9791/rc/',
+    MAX_PER_MINUTE: '1000',
+  },
   stdio: 'inherit',
 });
 await new Promise((r) => setTimeout(r, 500));
@@ -49,7 +70,7 @@ const post = (expected, { token = 'tok', file = audio, alt } = {}) => {
   form.append('expected', expected);
   if (alt) form.append('alt', alt);
   form.append('audio', new Blob([file], { type: 'audio/mp4' }), 'voice.m4a');
-  return fetch('http://127.0.0.1:9792/check', { method: 'POST', headers: { 'x-app-token': token }, body: form });
+  return fetch('http://127.0.0.1:9792/check', { method: 'POST', headers: { 'x-app-token': token, 'x-device-id': 'device-voice-000001' }, body: form });
 };
 
 try {
@@ -97,8 +118,8 @@ try {
   assert.equal((await post('بَاء', { file: Buffer.from('not audio') })).status, 502);
   assert.equal((await post('بَاء', { file: Buffer.alloc(3 * 1024 * 1024) }).catch(() => ({ status: 413 }))).status, 413);
   // ИИ-учитель
-  const ask = (body, token = 'tok') =>
-    fetch('http://127.0.0.1:9792/tutor', { method: 'POST', headers: { 'x-app-token': token, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const ask = (body, token = 'tok', extra = { 'x-device-id': 'device-tester-00001', 'x-tester-key': 'tester' }) =>
+    fetch('http://127.0.0.1:9792/tutor', { method: 'POST', headers: { 'x-app-token': token, 'content-type': 'application/json', ...extra }, body: JSON.stringify(body) });
   reply = { body: { candidates: [{ content: { parts: [{ text: 'Буква ص звучит твёрже, чем س.' }] } }] } };
   r = await ask({ messages: [{ role: 'user', text: 'Почему ص, а не س?' }], context: 'Неделя 1, алфавит' });
   assert.equal(r.status, 200);
@@ -122,12 +143,41 @@ try {
   assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] })).status, 502, 'пустой ответ');
   reply = { code: 429, body: { error: 'quota' } };
   assert.equal((await ask({ messages: [{ role: 'user', text: 'x' }] })).status, 502, 'лимит Gemini');
+
+  // Защита: без номера телефона запрос не принимается
+  const one = { messages: [{ role: 'user', text: 'x' }] };
+  assert.equal((await ask(one, 'tok', {})).status, 400, 'нет номера телефона');
+  assert.equal((await ask(one, 'tok', { 'x-device-id': 'short' })).status, 400, 'странный номер');
+  // Бесплатный ученик: 3 вопроса в день, неудачные ответы не считаются
+  const free = { 'x-device-id': 'device-free-0000001' };
+  reply = { code: 500, body: { error: 'down' } };
+  assert.equal((await ask(one, 'tok', free)).status, 502);
+  reply = { body: { candidates: [{ content: { parts: [{ text: 'ok' }] } }] } };
+  for (let i = 1; i <= 3; i++) assert.equal((await ask(one, 'tok', free)).status, 200, `бесплатный вопрос ${i}`);
+  r = await ask(one, 'tok', free);
+  assert.equal(r.status, 429, 'четвёртый вопрос без Премиума');
+  assert.deepEqual(await r.json(), { error: 'limit' });
+  assert.equal((await ask(one, 'tok', { ...free, 'x-tester-key': 'wrong' })).status, 429, 'чужой ключ проверяющего');
+  assert.equal((await ask(one, 'tok', { ...free, 'x-tester-key': 'tester' })).status, 200, 'ключ проверяющего без лимита');
+  // Премиум проверяется на сервере через RevenueCat
+  rc = { code: 200, body: { subscriber: { entitlements: { premium: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } } } } };
+  assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': '$RCAnonymousID:abc' })).status, 200, 'Премиум без лимита');
+  assert.equal(rcSeen.url, '/rc/%24RCAnonymousID%3Aabc');
+  assert.equal(rcSeen.headers.authorization, 'Bearer rc-secret');
+  rc = { code: 200, body: { subscriber: { entitlements: { premium: { expires_date: '2020-01-01T00:00:00Z' } } } } };
+  assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'expired-user' })).status, 429, 'истёкший Премиум');
+  rc = { code: 200, body: { subscriber: { entitlements: { premium: { expires_date: null } } } } };
+  assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'lifetime-user' })).status, 200, 'подарочный Премиум навсегда');
+  rc = { code: 500, body: {} };
+  assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'rc-down-user' })).status, 429, 'RevenueCat недоступен: как бесплатный');
+  // Другой телефон считается отдельно
+  assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);
   const health = await (await fetch('http://127.0.0.1:9792/health')).json();
   assert.deepEqual(health, { ok: true, voice: true, tutor: true });
 
   // Groq вместо Azure: ключ без банковской карты
   const groq = spawn('node', ['server/server.mjs'], {
-    env: { ...process.env, PORT: '9794', GROQ_API_KEY: 'gq-key', GROQ_URL: 'http://127.0.0.1:9791/groq', AZURE_KEY: '', GEMINI_API_KEY: '' },
+    env: { ...process.env, PORT: '9794', GROQ_API_KEY: 'gq-key', GROQ_URL: 'http://127.0.0.1:9791/groq', AZURE_KEY: '', GEMINI_API_KEY: '', DEVICE_VOICE_PER_DAY: '7' },
     stdio: 'inherit',
   });
   await new Promise((r) => setTimeout(r, 500));
@@ -137,7 +187,7 @@ try {
       form.append('expected', expected);
       if (alt) form.append('alt', alt);
       form.append('audio', new Blob([audio], { type: 'audio/mp4' }), 'voice.m4a');
-      return fetch('http://127.0.0.1:9794/check', { method: 'POST', body: form });
+      return fetch('http://127.0.0.1:9794/check', { method: 'POST', headers: { 'x-device-id': 'device-groq-0000001' }, body: form });
     };
     reply = { body: { text: ' باء', segments: [{ no_speech_prob: 0.05 }] } };
     assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'checked', correct: true, score: 100, heard: 'باء' });
@@ -160,9 +210,28 @@ try {
     assert.deepEqual(await (await postGroq('بَاء')).json(), { status: 'silent' });
     reply = { code: 429, body: { error: 'rate' } };
     assert.equal((await postGroq('بَاء')).status, 502);
+    // Дневной предел проверок голоса на один телефон
+    reply = { body: { text: 'باء', segments: [{ no_speech_prob: 0.05 }] } };
+    assert.equal((await postGroq('بَاء')).status, 429, 'восьмая проверка при пределе 7');
     assert.deepEqual(await (await fetch('http://127.0.0.1:9794/health')).json(), { ok: true, voice: true, tutor: false });
   } finally {
     groq.kill();
+  }
+  // Предел запросов в минуту с одного адреса
+  const strict = spawn('node', ['server/server.mjs'], {
+    env: { ...process.env, PORT: '9795', GEMINI_API_KEY: 'g-key', GEMINI_URL: 'http://127.0.0.1:9791/gemini', MAX_PER_MINUTE: '2', TESTER_KEY: 't' },
+    stdio: 'inherit',
+  });
+  await new Promise((r) => setTimeout(r, 500));
+  try {
+    reply = { body: { candidates: [{ content: { parts: [{ text: 'ok' }] } }] } };
+    const quick = () =>
+      fetch('http://127.0.0.1:9795/tutor', { method: 'POST', headers: { 'content-type': 'application/json', 'x-device-id': 'device-quick-000001', 'x-tester-key': 't' }, body: JSON.stringify({ messages: [{ role: 'user', text: 'x' }] }) });
+    assert.equal((await quick()).status, 200);
+    assert.equal((await quick()).status, 200);
+    assert.equal((await quick()).status, 429, 'третий запрос за минуту при пределе 2');
+  } finally {
+    strict.kill();
   }
   console.log('Сервер прошёл все проверки');
 } finally {

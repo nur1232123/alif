@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File } from 'expo-file-system';
-import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
+import { E2E, serverHeaders, serverReady, SERVER_URL, testWindow } from './server';
 
 /** Голос работает в приложении на телефоне, когда указан адрес сервера */
 export const voiceEnabled = E2E ? testWindow?.__voice !== undefined : serverReady;
@@ -52,9 +52,10 @@ export async function checkVoice(uri: string, expected: string, alternatives: st
     form.append('audio', new File(uri), 'voice.m4a');
     const response = await fetch(`${SERVER_URL}/check`, {
       method: 'POST',
-      headers: { 'x-app-token': SERVER_TOKEN },
+      headers: await serverHeaders(),
       body: form,
     });
+    if (response.status === 429) return { status: 'unavailable', detail: 'слишком много проверок, попробуйте позже' };
     if (!response.ok) return { status: 'unavailable', detail: `ответ сервера ${response.status}` };
     const data = (await response.json()) as VoiceResult;
     return data.status === 'checked' || data.status === 'silent' ? data : { status: 'unavailable', detail: 'странный ответ сервера' };

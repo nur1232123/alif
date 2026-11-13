@@ -1,7 +1,7 @@
-import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
+import { E2E, serverHeaders, serverReady, SERVER_URL, testWindow } from './server';
 
 export type TutorMessage = { role: 'user' | 'model'; text: string };
-export type TutorFailure = 'offline' | 'busy' | 'off' | 'token';
+export type TutorFailure = 'offline' | 'busy' | 'off' | 'token' | 'limit';
 export type TutorReply = { ok: true; text: string } | { ok: false; reason: TutorFailure };
 
 /** ИИ-учитель работает в приложении на телефоне, когда подключён сервер с ключом Gemini */
@@ -10,17 +10,22 @@ export const tutorEnabled = E2E ? testWindow?.__tutor !== undefined : serverRead
 export async function askTutor(messages: TutorMessage[], context = ''): Promise<TutorReply> {
   if (E2E) {
     const text = testWindow?.__tutor;
+    if (text === 'LIMIT') return { ok: false, reason: 'limit' };
     return text ? { ok: true, text } : { ok: false, reason: 'offline' };
   }
   try {
     const response = await fetch(`${SERVER_URL}/tutor`, {
       method: 'POST',
-      headers: { 'x-app-token': SERVER_TOKEN, 'content-type': 'application/json' },
+      headers: { ...(await serverHeaders()), 'content-type': 'application/json' },
       // Учитель видит последние 12 сообщений: этого хватает и не тратит лимит
       body: JSON.stringify({ messages: messages.slice(-12), context }),
     });
     if (response.status === 503) return { ok: false, reason: 'off' };
-    if (response.status === 429) return { ok: false, reason: 'busy' };
+    if (response.status === 429) {
+      // Сервер различает «вопросы на сегодня кончились» и «слишком часто»
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, reason: data.error === 'limit' ? 'limit' : 'busy' };
+    }
     if (response.status === 401) return { ok: false, reason: 'token' };
     if (!response.ok) return { ok: false, reason: 'busy' };
     const data = (await response.json()) as { text?: string };
@@ -34,8 +39,9 @@ export async function askTutor(messages: TutorMessage[], context = ''): Promise<
 export const TUTOR_LIMIT_TEXT = 'Бесплатные вопросы учителю на сегодня закончились. Завтра будут новые, а с Премиумом учитель отвечает без ограничений.';
 
 export const TUTOR_ERRORS: Record<TutorFailure, string> = {
-  offline: 'Нет связи с сервером. Проверьте интернет и что сервер запущен.',
+  offline: 'Нет связи с сервером. Проверьте интернет.',
   busy: 'Учитель сейчас занят. Попробуйте через минуту.',
   off: 'ИИ-учитель выключен: на сервере нет ключа Gemini.',
   token: 'Сервер не принял пароль: APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать.',
+  limit: TUTOR_LIMIT_TEXT,
 };

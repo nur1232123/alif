@@ -20,3 +20,9 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.1-flash-lite
+      # Любая фраза: с ней приложение автора спрашивает учителя без лимита (EXPO_PUBLIC_TESTER_KEY)
+      - key: TESTER_KEY
+        sync: false
+      # Секретный ключ RevenueCat (sk_...): сервер сам проверяет Премиум. Добавить при подключении оплаты
+      - key: REVENUECAT_SECRET
+        sync: false

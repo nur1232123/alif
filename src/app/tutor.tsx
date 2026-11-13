@@ -17,7 +17,9 @@ export default function TutorScreen() {
   const insets = useSafeAreaInsets();
   const { progress, currentLessonId } = useProgress();
   const { tutorLeft, spendTutor } = usePremium();
-  const limited = tutorLeft <= 0;
+  // Лимит считает и телефон, и сервер: сервер обойти нельзя
+  const [serverLimited, setServerLimited] = useState(false);
+  const limited = tutorLeft <= 0 || serverLimited;
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,7 +48,8 @@ export default function TutorScreen() {
       // Вопрос возвращается в поле ввода, чтобы его не набирать заново
       setMessages(messages);
       setDraft(question);
-      setError(TUTOR_ERRORS[reply.reason]);
+      if (reply.reason === 'limit') setServerLimited(true);
+      else setError(TUTOR_ERRORS[reply.reason]);
     }
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
   };

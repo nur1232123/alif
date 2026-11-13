@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
 import type { Week } from '@/data/types';
 import { dayKey } from './progress';
-import { E2E, TEST_MODE } from './server';
+import { E2E, setRcUser, TEST_MODE } from './server';
 
 /** Бесплатно: этапы 1–2 (алфавит и чтение). С этапа 3 нужен Премиум */
 export const FREE_STAGES = 2;
@@ -131,6 +131,8 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       Purchases.configure({ apiKey: RC_KEY });
       Purchases.addCustomerInfoUpdateListener(onInfo);
       Purchases.getCustomerInfo().then(onInfo).catch(() => {});
+      // Сервер по этому номеру сам проверяет Премиум, подделать его в приложении нельзя
+      Purchases.getAppUserID().then(setRcUser).catch(() => {});
       Purchases.getOfferings()
         .then((offerings) => {
           const current = offerings.current;

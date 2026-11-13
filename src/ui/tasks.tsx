@@ -28,6 +28,10 @@ function WhyButton({ question }: { question: string }) {
     }
     setState('loading');
     const reply = await askTutor([{ role: 'user', text: question }]);
+    if (!reply.ok && reply.reason === 'limit') {
+      setState('limit');
+      return;
+    }
     if (reply.ok) spendTutor();
     setText(reply.ok ? reply.text : TUTOR_ERRORS[reply.reason]);
     setState('done');

@@ -41,7 +41,23 @@ const FFMPEG = (() => {
     return 'ffmpeg';
   }
 })();
-const MAX_PER_MINUTE = 30;
+// Защита бесплатных лимитов Gemini и Groq
+const num = (name, fallback) => Number(process.env[name] ?? fallback);
+/** Запросов в минуту с одного адреса */
+const MAX_PER_MINUTE = num('MAX_PER_MINUTE', 30);
+/** Вопросов учителю в день без Премиума: как в приложении */
+const FREE_TUTOR_PER_DAY = num('FREE_TUTOR_PER_DAY', 3);
+/** Верхние границы на один телефон и на один адрес в сутки, даже с Премиумом */
+const DEVICE_TUTOR_PER_DAY = num('DEVICE_TUTOR_PER_DAY', 200);
+const DEVICE_VOICE_PER_DAY = num('DEVICE_VOICE_PER_DAY', 400);
+const IP_TUTOR_PER_DAY = num('IP_TUTOR_PER_DAY', 300);
+const IP_VOICE_PER_DAY = num('IP_VOICE_PER_DAY', 800);
+/** Ключ проверяющего: с ним учитель без лимита (EXPO_PUBLIC_TESTER_KEY в приложении автора) */
+const TESTER_KEY = (process.env.TESTER_KEY ?? '').trim();
+/** Секретный ключ RevenueCat: по нему сервер сам проверяет, есть ли у ученика Премиум */
+const RC_SECRET = (process.env.REVENUECAT_SECRET ?? '').trim();
+const RC_URL = process.env.REVENUECAT_URL ?? 'https://api.revenuecat.com/v1/subscribers/';
+const ENTITLEMENT = process.env.ENTITLEMENT ?? 'premium';
 
 /** Подсказывает адрес компьютера в сети: его нужно вписать в .env приложения */
 async function showAddresses() {
@@ -51,6 +67,55 @@ async function showAddresses() {
     .filter((n) => n && n.family === 'IPv4' && !n.internal)
     .map((n) => n.address);
   for (const ip of ips) console.log(`Адрес для приложения: EXPO_PUBLIC_SERVER_URL=http://${ip}:${PORT}`);
+}
+
+// Счётчики за сутки живут в памяти: при перезапуске сервера обнуляются, этого достаточно против злоупотреблений
+const daily = new Map();
+let dailyDay = '';
+/** Увеличивает счётчик и говорит, превышен ли предел за сегодня */
+function overDaily(key, max) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== dailyDay) {
+    daily.clear();
+    dailyDay = today;
+  }
+  const count = (daily.get(key) ?? 0) + 1;
+  daily.set(key, count);
+  return count > max;
+}
+const peekDaily = (key) => daily.get(key) ?? 0;
+
+const DEVICE_RE = /^[A-Za-z0-9-]{16,64}$/;
+
+// Ответ RevenueCat кэшируется на 10 минут, чтобы не спрашивать на каждый вопрос
+const premiumCache = new Map();
+async function hasPremium(userId) {
+  if (!RC_SECRET || !userId || userId.length > 200) return false;
+  const cached = premiumCache.get(userId);
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.active;
+  let active = false;
+  try {
+    const response = await fetch(RC_URL + encodeURIComponent(userId), {
+      headers: { Authorization: `Bearer ${RC_SECRET}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const ent = data?.subscriber?.entitlements?.[ENTITLEMENT];
+      active = !!ent && (ent.expires_date === null || Date.parse(ent.expires_date) > Date.now());
+    }
+  } catch (error) {
+    console.error(`RevenueCat: ${error.message}`);
+  }
+  premiumCache.set(userId, { active, at: Date.now() });
+  return active;
+}
+
+/** Адрес ученика: за прокси облака настоящий адрес приходит в заголовке */
+function clientIp(req) {
+  const cf = req.headers['cf-connecting-ip']?.toString().trim();
+  if (cf) return cf;
+  return req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
 }
 
 const hits = new Map();
@@ -279,23 +344,38 @@ const server = createServer(async (req, res) => {
     console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
     return send(res, 401, { error: 'bad token' });
   }
-  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
+  const ip = clientIp(req);
   if (limited(ip)) return send(res, 429, { error: 'too many requests' });
+  // Запросы принимаются только с номером телефона, который создаёт приложение
+  const device = req.headers['x-device-id']?.toString() ?? '';
+  if (!DEVICE_RE.test(device)) return send(res, 400, { error: 'no device' });
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
+    if (overDaily(`ip-tutor:${ip}`, IP_TUTOR_PER_DAY) || overDaily(`dev-tutor:${device}`, DEVICE_TUTOR_PER_DAY)) {
+      return send(res, 429, { error: 'too many requests' });
+    }
+    const tester = TESTER_KEY && req.headers['x-tester-key']?.toString().trim() === TESTER_KEY;
+    const unlimited = tester || (await hasPremium(req.headers['x-rc-user']?.toString()));
+    if (!unlimited && peekDaily(`free-tutor:${device}`) >= FREE_TUTOR_PER_DAY) return send(res, 429, { error: 'limit' });
     try {
       const input = readMessages(await readBody(req));
       if (!input) {
         console.error('Учитель: неверный запрос от приложения');
         return send(res, 400, { error: 'bad request' });
       }
-      return send(res, 200, { text: await askTutor(input.messages, input.context) });
+      const text = await askTutor(input.messages, input.context);
+      // Считаем только вопросы, на которые учитель ответил
+      if (!unlimited) overDaily(`free-tutor:${device}`, Infinity);
+      return send(res, 200, { text });
     } catch (error) {
       console.error(error.message);
       return send(res, 502, { error: 'tutor failed' });
     }
   }
   if (!VOICE_ENGINE) return send(res, 503, { error: 'voice is off' });
+  if (overDaily(`ip-voice:${ip}`, IP_VOICE_PER_DAY) || overDaily(`dev-voice:${device}`, DEVICE_VOICE_PER_DAY)) {
+    return send(res, 429, { error: 'too many requests' });
+  }
   try {
     const form = parseForm(await readBody(req), req.headers['content-type']);
     const expected = form?.expected?.toString('utf8').trim();
@@ -333,6 +413,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     console.log(`Сервер «Алиф» работает на порту ${PORT}`);
     console.log(`Проверка голоса: ${VOICE_ENGINE ? `включена (${VOICE_ENGINE})` : 'выключена (нет GROQ_API_KEY или AZURE_KEY)'}`);
     console.log(`ИИ-учитель: ${GEMINI_KEY ? `включён, модель ${GEMINI_MODEL}` : 'выключен (нет GEMINI_API_KEY)'}`);
+    console.log(`Защита: ${FREE_TUTOR_PER_DAY} вопроса в день без Премиума${TESTER_KEY ? ', ключ проверяющего задан' : ''}${RC_SECRET ? ', Премиум проверяется через RevenueCat' : ''}`);
     showAddresses();
   });
 }
