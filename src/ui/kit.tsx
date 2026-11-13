@@ -191,6 +191,22 @@ export function ListenButton({ text, label = 'Слушать', testID }: { text:
 
 export { PlayGlyph };
 
+/** true, если что-то грузится дольше обычного: облачный сервер мог заснуть и просыпается */
+export function useSlow(active: boolean, ms = 6000) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setSlow(true), ms);
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
+  }, [active, ms]);
+  return active && slow;
+}
+
+export const WAKING_TEXT = 'Сервер просыпается, это бывает до минуты…';
+
 /** Карточка с крупной арабской буквой или словом: главное на экране задания */
 export function GlyphCard({ text, children }: { text: string; children?: ReactNode }) {
   const c = useColors();

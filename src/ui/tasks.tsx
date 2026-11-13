@@ -6,7 +6,7 @@ import { playSfx } from '@/lib/sfx';
 import { say, sayAll } from '@/lib/speech';
 import { usePremium } from '@/lib/premium';
 import { askTutor, TUTOR_ERRORS, TUTOR_LIMIT_TEXT, tutorEnabled } from '@/lib/tutor';
-import { Ar, Button, GlyphCard, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
+import { Ar, Button, GlyphCard, Khatam, ListenButton, PlayGlyph, T, useSlow, useVoiceMissing, VoiceNotice, WAKING_TEXT } from './kit';
 import { fonts, useColors } from './theme';
 
 const E2E = process.env.EXPO_PUBLIC_E2E === '1';
@@ -19,6 +19,7 @@ function WhyButton({ question }: { question: string }) {
   const c = useColors();
   const { tutorLeft, spendTutor } = usePremium();
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'limit'>('idle');
+  const slow = useSlow(state === 'loading');
   const [text, setText] = useState('');
   const ask = async () => {
     if (tutorLeft <= 0) {
@@ -52,7 +53,7 @@ function WhyButton({ question }: { question: string }) {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 }}>
         <ActivityIndicator color={c.bad} />
-        <T tone="muted">Учитель думает…</T>
+        <T tone="muted" style={{ flexShrink: 1 }}>{slow ? WAKING_TEXT : 'Учитель думает…'}</T>
       </View>
     );
   }

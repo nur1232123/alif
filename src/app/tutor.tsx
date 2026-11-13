@@ -6,7 +6,7 @@ import { getLesson } from '@/lib/plan';
 import { FREE_TUTOR_PER_DAY, usePremium } from '@/lib/premium';
 import { useProgress } from '@/lib/progress';
 import { askTutor, TUTOR_ERRORS, TUTOR_LIMIT_TEXT, tutorEnabled, type TutorMessage } from '@/lib/tutor';
-import { T } from '@/ui/kit';
+import { T, useSlow, WAKING_TEXT } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 
 const SUGGESTIONS = ['Чем отличаются ح и ه?', 'Что такое танвин?', 'Когда «аль» не читается?', 'Как сказать «спасибо»?'];
@@ -21,6 +21,7 @@ export default function TutorScreen() {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const slow = useSlow(busy);
   const [error, setError] = useState<string | null>(null);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
@@ -101,7 +102,7 @@ export default function TutorScreen() {
         {busy ? (
           <View style={[bubble(false), { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
             <ActivityIndicator color={c.accent} />
-            <T tone="muted">Учитель думает…</T>
+            <T tone="muted" style={{ flexShrink: 1 }}>{slow ? WAKING_TEXT : 'Учитель думает…'}</T>
           </View>
         ) : null}
         {messages.length === 0 && tutorEnabled && !limited ? (

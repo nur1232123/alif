@@ -1,0 +1,22 @@
+# Сервер «Алиф» в облаке Render (бесплатный тариф).
+# На render.com: New → Blueprint → этот репозиторий. Ключи Render спросит при создании.
+services:
+  - type: web
+    name: alif-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /health
+    autoDeploy: true
+    # Пересобирать сервер, только когда меняется папка server
+    buildFilter:
+      paths:
+        - server/**
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite

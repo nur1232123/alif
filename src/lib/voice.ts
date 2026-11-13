@@ -1,23 +1,32 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File } from 'expo-file-system';
 import { E2E, serverReady, SERVER_TOKEN, SERVER_URL, testWindow } from './server';
 
 /** Голос работает в приложении на телефоне, когда указан адрес сервера */
 export const voiceEnabled = E2E ? testWindow?.__voice !== undefined : serverReady;
 
-// Включена ли проверка голоса на самом сервере: узнаём при запуске приложения
+// Включена ли проверка голоса на самом сервере. Пока сервер не ответил, верим прошлому ответу
 let serverVoice = false;
+const VOICE_KEY = 'alif.voice.v1';
 
+/**
+ * Спрашивает сервер, включён ли голос, и заодно будит его: бесплатный сервер в облаке
+ * засыпает без запросов и просыпается до минуты. Вызывается при запуске приложения.
+ */
 export async function refreshVoice() {
   if (!serverReady) return;
+  const saved = await AsyncStorage.getItem(VOICE_KEY).catch(() => null);
+  if (saved !== null) serverVoice = saved === '1';
   // AbortSignal.timeout есть не во всех версиях React Native, поэтому таймер вручную
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
+  const timer = setTimeout(() => controller.abort(), 75_000);
   try {
     const response = await fetch(`${SERVER_URL}/health`, { signal: controller.signal });
     const data = (await response.json()) as { voice?: boolean };
     serverVoice = data.voice === true;
+    AsyncStorage.setItem(VOICE_KEY, serverVoice ? '1' : '0').catch(() => {});
   } catch {
-    serverVoice = false;
+    // Сервер не ответил: оставляем прошлый ответ, задание само покажет, если голос недоступен
   } finally {
     clearTimeout(timer);
   }

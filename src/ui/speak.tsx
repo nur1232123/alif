@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import type { SpeakTask } from '@/lib/plan';
 import { playSfx } from '@/lib/sfx';
 import { checkVoice, type VoiceResult } from '@/lib/voice';
-import { Ar, Button, GlyphCard, T } from './kit';
+import { Ar, Button, GlyphCard, T, useSlow, WAKING_TEXT } from './kit';
 import type { Slots } from './tasks';
 import { useColors } from './theme';
 
@@ -16,6 +16,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
   const c = useColors();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [phase, setPhase] = useState<Phase>('idle');
+  const slow = useSlow(phase === 'checking');
   const [result, setResult] = useState<Extract<VoiceResult, { status: 'checked' }> | null>(null);
   // Точная причина сбоя: по ней видно, где сломалось
   const [detail, setDetail] = useState('');
@@ -128,7 +129,7 @@ export function useSpeak(task: SpeakTask, last: boolean, onDone: (correct: boole
               </View>
             )}
           </Pressable>
-          {message[phase] ? <T tone="muted" style={{ textAlign: 'center' }} testID={`speak-${phase}`}>{message[phase]}</T> : null}
+          {message[phase] ? <T tone="muted" style={{ textAlign: 'center' }} testID={`speak-${phase}`}>{phase === 'checking' && slow ? WAKING_TEXT : message[phase]}</T> : null}
           {phase === 'unavailable' && detail ? (
             <T size={12} tone="muted" style={{ textAlign: 'center' }} testID="speak-detail">
               Причина: {detail}
