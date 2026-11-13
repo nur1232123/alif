@@ -4,13 +4,14 @@ import { FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import { LETTERS } from '@/data/letters';
+import { MARKS, NUMBER_SAMPLES, NUMERALS_REF } from '@/data/reference';
 import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
 import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
-import { say } from '@/lib/speech';
+import { say, sayAll } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 
@@ -218,17 +219,137 @@ function LetterSheet({ letter, onClose }: { letter: Item; onClose: () => void })
   );
 }
 
+type RefSection = 'letters' | 'marks' | 'numbers';
+
+/** Переключатель разделов справочника */
+function Segments({ value, onChange }: { value: RefSection; onChange: (v: RefSection) => void }) {
+  const c = useColors();
+  const items: [RefSection, string][] = [['letters', 'Буквы'], ['marks', 'Огласовки'], ['numbers', 'Цифры']];
+  return (
+    <View style={{ flexDirection: 'row', padding: 4, gap: 4, borderRadius: 16, backgroundColor: c.soft }} accessibilityRole="tablist">
+      {items.map(([id, label]) => {
+        const active = id === value;
+        return (
+          <Pressable
+            key={id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(id)}
+            testID={`ref-${id}`}
+            style={{ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: active ? c.surface : 'transparent', boxShadow: active ? c.shadow : undefined }}
+          >
+            <T size={14} weight={active ? 'bold' : 'medium'} tone={active ? 'ink' : 'muted'}>{label}</T>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Огласовки: каждая на букве ب, с правилом и словом-примером */
+function MarksSection() {
+  const c = useColors();
+  return (
+    <View style={{ gap: 10 }} testID="marks">
+      <T tone="muted" size={14}>Огласовки — значки над буквой и под ней. Они показывают, какой звук идёт после согласного. Нажмите на карточку, чтобы послушать.</T>
+      {MARKS.map((mark) => (
+        <Pressable
+          key={mark.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${mark.name}: ${mark.reads}`}
+          onPress={() => sayAll([mark.sample, mark.example.ar])}
+          testID={`mark-${mark.id}`}
+          style={({ pressed }) => ({ gap: 10, padding: 14, borderRadius: 20, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow, transform: [{ scale: pressed ? 0.98 : 1 }] })}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 76, height: 76, borderRadius: 18, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <Ar size={44} bold style={{ lineHeight: 76 }}>{mark.sample}</Ar>
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <T size={17} weight="bold">{mark.name}</T>
+                <T size={15} tone="accent" weight="medium">«{mark.reads}»</T>
+              </View>
+              <T size={14} tone="muted" style={{ lineHeight: 20 }}>{mark.rule}</T>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line }}>
+            <PlayGlyph color={c.accent} size={10} />
+            <T size={14} style={{ flex: 1 }}>{mark.example.ru}</T>
+            <Ar size={26} style={{ lineHeight: 42 }}>{mark.example.ar}</Ar>
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** Арабские цифры и как читаются числа */
+function NumbersSection() {
+  const c = useColors();
+  const [shown, setShown] = useState<string[]>([]);
+  return (
+    <View style={{ gap: 14 }} testID="numbers">
+      <T tone="muted" size={14}>
+        В арабском тексте часто пишут такие цифры. Числа из нескольких цифр читаются слева направо, как у нас, хотя буквы идут справа налево.
+      </T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {NUMERALS_REF.map((n) => (
+          <Pressable
+            key={n.value}
+            accessibilityRole="button"
+            accessibilityLabel={`${n.value}, ${n.reads}`}
+            onPress={() => say(n.word)}
+            testID={`num-${n.value}`}
+            style={({ pressed }) => ({ flexBasis: '30%', flexGrow: 1, minWidth: 96, alignItems: 'center', paddingTop: 2, paddingBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+          >
+            <Ar size={38} bold style={{ lineHeight: 62 }}>{n.digit}</Ar>
+            <T size={15} weight="bold" tone="accent">{n.value}</T>
+            <Ar size={18} style={{ lineHeight: 30, marginTop: 8 }}>{n.word}</Ar>
+            <T size={12} tone="muted">{n.reads}</T>
+          </Pressable>
+        ))}
+      </View>
+      <T size={17} weight="bold">Попробуйте прочитать</T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {NUMBER_SAMPLES.map((n) => {
+          const open = shown.includes(n.value);
+          return (
+            <Pressable
+              key={n.value}
+              accessibilityRole="button"
+              accessibilityLabel={open ? `${n.value}, ${n.ru}` : 'Показать ответ'}
+              onPress={() => setShown(open ? shown.filter((v) => v !== n.value) : [...shown, n.value])}
+              testID={`sample-${n.value}`}
+              style={{ flexBasis: '45%', flexGrow: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: open ? c.goodSoft : c.soft, paddingVertical: 4 }}
+            >
+              <Ar size={32} bold style={{ lineHeight: 52 }}>{n.digits}</Ar>
+              <T size={13} tone={open ? 'good' : 'muted'} weight={open ? 'bold' : 'regular'} style={{ textAlign: 'center', paddingHorizontal: 8 }}>{open ? `${n.value} — ${n.ru}` : 'Проверить'}</T>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 /** Весь алфавит доступен с первого дня: можно посмотреть и послушать любую букву */
 function LettersTab() {
   const c = useColors();
   const { progress } = useProgress();
   const known = useMemo(() => new Set(knownItems(progress.done).map((x) => x.id)), [progress.done]);
   const [open, setOpen] = useState<Item | null>(null);
+  const [section, setSection] = useState<RefSection>('letters');
   const learned = LETTERS.filter((l) => known.has(l.id)).length;
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' }} testID="letters-tab">
         <T size={24} weight="bold" style={{ lineHeight: 32 }}>Буквы</T>
+        <Segments value={section} onChange={setSection} />
+        {section === 'marks' ? <MarksSection /> : null}
+        {section === 'numbers' ? <NumbersSection /> : null}
+        {section === 'letters' ? (
+        <>
         <View style={{ gap: 6 }}>
           <T tone="muted" size={14}>Выучено {learned} из 28. Нажмите на букву, чтобы услышать её и посмотреть формы.</T>
           <ProgressBar value={learned} total={28} />
@@ -267,6 +388,8 @@ function LettersTab() {
             );
           })}
         </View>
+        </>
+        ) : null}
       </ScrollView>
       {open ? <LetterSheet letter={open} onClose={() => setOpen(null)} /> : null}
     </View>
