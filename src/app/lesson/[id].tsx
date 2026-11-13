@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
 import { buildLesson, buildPractice, getLesson, isGraded, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
+import { isPaidWeek, usePremium } from '@/lib/premium';
 import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
 import { voiceReady } from '@/lib/voice';
@@ -282,6 +283,7 @@ function Runner({ lesson }: { lesson: LessonRef | null }) {
 export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { progress, lessonState } = useProgress();
+  const { isPremium } = usePremium();
 
   if (id === 'practice') {
     if (Object.keys(progress.done).length === 0) return <Redirect href="/" />;
@@ -292,5 +294,7 @@ export default function LessonScreen() {
   const state = lessonState(lesson.id);
   // Экран результата показывается уже после записи урока, поэтому 'done' тоже разрешён
   if (state === 'locked') return <Redirect href="/" />;
+  // Этапы 3–5 только по подписке
+  if (isPaidWeek(lesson.week) && !isPremium) return <Redirect href="/premium" />;
   return <Runner key={lesson.id} lesson={lesson} />;
 }

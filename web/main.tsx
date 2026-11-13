@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { TextInput, View } from 'react-native';
 import Home from '@/app/index';
 import LessonScreen from '@/app/lesson/[id]';
+import PremiumScreen from '@/app/premium';
 import TutorScreen from '@/app/tutor';
 import Welcome from '@/app/welcome';
+import { PremiumProvider } from '@/lib/premium';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
 import { Button, slots, T } from '@/ui/kit';
@@ -63,7 +65,7 @@ function Routes() {
   if (!progress.name || path === '/welcome') return <Welcome key={path} />;
 
   const [, section, id] = path.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : Home;
+  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : Home;
   return (
     <ParamsContext.Provider key={path} value={{ id }}>
       <Screen />
@@ -73,6 +75,8 @@ function Routes() {
 
 createRoot(document.getElementById('root')!).render(
   <ProgressProvider>
-    <Routes />
+    <PremiumProvider>
+      <Routes />
+    </PremiumProvider>
   </ProgressProvider>,
 );

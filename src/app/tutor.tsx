@@ -3,8 +3,9 @@ import { type ComponentRef, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getLesson } from '@/lib/plan';
+import { FREE_TUTOR_PER_DAY, usePremium } from '@/lib/premium';
 import { useProgress } from '@/lib/progress';
-import { askTutor, TUTOR_ERRORS, tutorEnabled, type TutorMessage } from '@/lib/tutor';
+import { askTutor, TUTOR_ERRORS, TUTOR_LIMIT_TEXT, tutorEnabled, type TutorMessage } from '@/lib/tutor';
 import { T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 
@@ -15,6 +16,8 @@ export default function TutorScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { progress, currentLessonId } = useProgress();
+  const { tutorLeft, spendTutor } = usePremium();
+  const limited = tutorLeft <= 0;
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,7 +29,7 @@ export default function TutorScreen() {
 
   const send = async (text: string) => {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || limited) return;
     const next: TutorMessage[] = [...messages, { role: 'user', text: question }];
     setMessages(next);
     setDraft('');
@@ -34,7 +37,10 @@ export default function TutorScreen() {
     setBusy(true);
     const reply = await askTutor(next, context);
     setBusy(false);
-    if (reply.ok) setMessages([...next, { role: 'model', text: reply.text }]);
+    if (reply.ok) {
+      setMessages([...next, { role: 'model', text: reply.text }]);
+      spendTutor();
+    }
     else {
       // Вопрос возвращается в поле ввода, чтобы его не набирать заново
       setMessages(messages);
@@ -66,7 +72,9 @@ export default function TutorScreen() {
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <T size={17} weight="bold">ИИ-учитель</T>
-            <T size={12} tone="muted">Отвечает на вопросы об арабском по-русски</T>
+            <T size={12} tone="muted">
+              {tutorLeft === Infinity ? 'Отвечает на вопросы об арабском по-русски' : `Бесплатно ${FREE_TUTOR_PER_DAY} вопроса в день, осталось ${tutorLeft}`}
+            </T>
           </View>
         </View>
       </View>
@@ -96,7 +104,7 @@ export default function TutorScreen() {
             <T tone="muted">Учитель думает…</T>
           </View>
         ) : null}
-        {messages.length === 0 && tutorEnabled ? (
+        {messages.length === 0 && tutorEnabled && !limited ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
             {SUGGESTIONS.map((s) => (
               <Pressable
@@ -112,6 +120,14 @@ export default function TutorScreen() {
           </View>
         ) : null}
         {error ? <T size={14} tone="bad" testID="tutor-error">{error}</T> : null}
+        {limited && tutorEnabled ? (
+          <View style={{ gap: 8, padding: 14, borderRadius: 16, backgroundColor: c.goldSoft }} testID="tutor-limit">
+            <T style={{ lineHeight: 22 }}>{TUTOR_LIMIT_TEXT}</T>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/premium')} style={{ minHeight: 36, justifyContent: 'center' }} testID="tutor-premium">
+              <T weight="bold" tone="accent">Открыть Премиум</T>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: insets.bottom + 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line, backgroundColor: c.bg }}>
@@ -119,7 +135,7 @@ export default function TutorScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
             <TextInput
               accessibilityLabel="Вопрос учителю"
-              editable={tutorEnabled && !busy}
+              editable={tutorEnabled && !busy && !limited}
               multiline
               maxLength={600}
               onChangeText={setDraft}
@@ -132,10 +148,10 @@ export default function TutorScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Отправить"
-              disabled={!tutorEnabled || busy || !draft.trim()}
+              disabled={!tutorEnabled || busy || limited || !draft.trim()}
               onPress={() => send(draft)}
               testID="tutor-send"
-              style={({ pressed }) => ({ height: 48, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, opacity: !tutorEnabled || busy || !draft.trim() ? 0.4 : pressed ? 0.8 : 1 })}
+              style={({ pressed }) => ({ height: 48, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, opacity: !tutorEnabled || busy || limited || !draft.trim() ? 0.4 : pressed ? 0.8 : 1 })}
             >
               <T weight="bold" style={{ color: c.onAccent }}>Отправить</T>
             </Pressable>

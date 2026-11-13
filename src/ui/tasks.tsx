@@ -1,9 +1,11 @@
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import type { BuildTask, ChoiceTask, IntroTask, MatchTask, Option, ReadTask, TipTask } from '@/lib/plan';
 import { playSfx } from '@/lib/sfx';
 import { say, sayAll } from '@/lib/speech';
-import { askTutor, TUTOR_ERRORS, tutorEnabled } from '@/lib/tutor';
+import { usePremium } from '@/lib/premium';
+import { askTutor, TUTOR_ERRORS, TUTOR_LIMIT_TEXT, tutorEnabled } from '@/lib/tutor';
 import { Ar, Button, GlyphCard, Khatam, ListenButton, PlayGlyph, T, useVoiceMissing, VoiceNotice } from './kit';
 import { fonts, useColors } from './theme';
 
@@ -15,14 +17,30 @@ export type Slots = { body: React.ReactNode; footer: React.ReactNode };
 /** После ошибки ИИ-учитель объясняет, почему ответ неверный */
 function WhyButton({ question }: { question: string }) {
   const c = useColors();
-  const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle');
+  const { tutorLeft, spendTutor } = usePremium();
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'limit'>('idle');
   const [text, setText] = useState('');
   const ask = async () => {
+    if (tutorLeft <= 0) {
+      setState('limit');
+      return;
+    }
     setState('loading');
     const reply = await askTutor([{ role: 'user', text: question }]);
+    if (reply.ok) spendTutor();
     setText(reply.ok ? reply.text : TUTOR_ERRORS[reply.reason]);
     setState('done');
   };
+  if (state === 'limit') {
+    return (
+      <View style={{ gap: 6, padding: 12, borderRadius: 12, backgroundColor: c.surface }} testID="why-limit">
+        <T size={15} style={{ lineHeight: 22 }}>{TUTOR_LIMIT_TEXT}</T>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/premium')} style={{ minHeight: 36, justifyContent: 'center' }} testID="why-premium">
+          <T weight="bold" tone="accent">Открыть Премиум</T>
+        </Pressable>
+      </View>
+    );
+  }
   if (state === 'idle') {
     return (
       <Pressable accessibilityRole="button" onPress={ask} testID="why" style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' }}>

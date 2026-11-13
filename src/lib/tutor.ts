@@ -30,6 +30,9 @@ export async function askTutor(messages: TutorMessage[], context = ''): Promise<
   }
 }
 
+/** Когда бесплатные вопросы на сегодня закончились */
+export const TUTOR_LIMIT_TEXT = 'Бесплатные вопросы учителю на сегодня закончились. Завтра будут новые, а с Премиумом учитель отвечает без ограничений.';
+
 export const TUTOR_ERRORS: Record<TutorFailure, string> = {
   offline: 'Нет связи с сервером. Проверьте интернет и что сервер запущен.',
   busy: 'Учитель сейчас занят. Попробуйте через минуту.',

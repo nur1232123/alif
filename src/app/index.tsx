@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import { LETTERS } from '@/data/letters';
@@ -8,6 +8,7 @@ import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
 import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
+import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
 import { say } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
@@ -23,13 +24,20 @@ const offsetOf = (n: number) => (n === LESSONS_PER_WEEK ? 0 : Math.round(Math.si
 
 type Tab = 'path' | 'letters' | 'practice' | 'profile';
 
-function WeekBanner({ week }: { week: Week }) {
+function WeekBanner({ week, paidLock }: { week: Week; paidLock: boolean }) {
   const c = useColors();
   const stage = getStage(week.stageId)!;
   return (
     <View style={{ height: BANNER - 16, marginBottom: 16, borderRadius: 20, backgroundColor: c.accent, boxShadow: c.lift, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <T size={13} weight="medium" style={{ color: c.onAccent, opacity: 0.85 }}>Этап {stage.id} · неделя {week.n}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <T size={13} weight="medium" style={{ color: c.onAccent, opacity: 0.85 }}>Этап {stage.id} · неделя {week.n}</T>
+          {paidLock ? (
+            <View style={{ paddingHorizontal: 7, paddingVertical: 1, borderRadius: 7, backgroundColor: c.gold }} testID={`premium-badge-${week.n}`}>
+              <T size={11} weight="bold" style={{ color: c.onAccent }}>Премиум</T>
+            </View>
+          ) : null}
+        </View>
         <T size={19} weight="bold" style={{ color: c.onAccent, lineHeight: 25 }}>{week.title}</T>
       </View>
       <Text style={{ color: c.onAccent, fontFamily: fonts.arabic, fontSize: 20, lineHeight: 34 }}>{stage.ar}</Text>
@@ -37,24 +45,24 @@ function WeekBanner({ week }: { week: Week }) {
   );
 }
 
-function PathNode({ week, n, state, current, onPress }: { week: Week; n: number; state: LessonState; current: boolean; onPress: () => void }) {
+function PathNode({ week, n, state, current, paidLock, onPress }: { week: Week; n: number; state: LessonState; current: boolean; paidLock: boolean; onPress: () => void }) {
   const c = useColors();
   const exam = n === LESSONS_PER_WEEK;
   const day = Math.ceil(n / LESSONS_PER_DAY);
   const lesson = getLesson(lessonId(week.n, n))!;
   const checkpoint = lesson.spec.kind === 'checkpoint';
   const size = exam ? 84 : checkpoint ? 78 : 70;
-  const fill = state === 'done' ? c.gold : state === 'open' ? c.accent : c.line;
+  const fill = paidLock ? c.line : state === 'done' ? c.gold : state === 'open' ? c.accent : c.line;
   // В уроке с новыми буквами на узле видна первая из них
   const spec = lesson.spec;
   const glyph = spec.kind === 'intro' && week.kind !== 'words' ? introChunks(week)[spec.chunk][0].ar : NUMERALS[day - 1];
-  const ink = state === 'locked' ? c.muted : c.onAccent;
+  const ink = state === 'locked' || paidLock ? c.muted : c.onAccent;
   return (
     <View style={{ height: ROW, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ transform: [{ translateX: offsetOf(n) }] }}>
         {current ? (
           <View style={{ position: 'absolute', top: -20, alignSelf: 'center', zIndex: 2, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line }}>
-            <T size={12} weight="bold" tone="accent">Начать</T>
+            <T size={12} weight="bold" tone={paidLock ? 'gold' : 'accent'}>{paidLock ? 'Премиум' : 'Начать'}</T>
           </View>
         ) : null}
         <Pressable
@@ -65,6 +73,11 @@ function PathNode({ week, n, state, current, onPress }: { week: Week; n: number;
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
         >
           <Khatam size={size} fill={fill}>
+            {paidLock ? (
+              <View style={{ position: 'absolute', right: -2, top: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: c.gold, alignItems: 'center', justifyContent: 'center' }}>
+                <T size={11} weight="bold" style={{ color: c.onAccent, lineHeight: 14 }}>★</T>
+              </View>
+            ) : null}
             {exam || checkpoint ? (
               <T size={13} weight="bold" style={{ color: ink }}>{state === 'done' ? '✓' : exam ? (week.bigExam ? '🌟' : 'Экз') : '½'}</T>
             ) : (
@@ -80,8 +93,10 @@ function PathNode({ week, n, state, current, onPress }: { week: Week; n: number;
 function LessonSheet({ id, onClose, onTrain }: { id: string; onClose: () => void; onTrain: () => void }) {
   const c = useColors();
   const { lessonState, progress } = useProgress();
+  const { isPremium } = usePremium();
   const lesson = getLesson(id)!;
   const state = lessonState(id);
+  const paidLock = isPaidWeek(lesson.week) && !isPremium;
   const canTrain = Object.keys(progress.done).length > 0;
   const openCopy =
     lesson.spec.kind === 'checkpoint'
@@ -101,8 +116,10 @@ function LessonSheet({ id, onClose, onTrain }: { id: string; onClose: () => void
         <View style={{ width: '100%', maxWidth: 560, gap: 10, padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: c.surface }} testID="lesson-sheet">
           <T size={13} weight="bold" tone="accent">Неделя {lesson.week.n}: {lesson.week.title}</T>
           <T size={22} weight="bold" style={{ lineHeight: 28 }}>{lesson.title}</T>
-          <T tone="muted">{copy}</T>
-          {state === 'open' || state === 'done' ? (
+          <T tone="muted">{paidLock ? 'Этот урок входит в Алиф Премиум. Алфавит и чтение остаются бесплатными.' : copy}</T>
+          {paidLock ? (
+            <Button label="Открыть Премиум" onPress={() => { onClose(); router.push('/premium'); }} testID="sheet-premium" />
+          ) : state === 'open' || state === 'done' ? (
             <Button label={state === 'done' ? 'Повторить урок' : 'Начать урок'} onPress={() => { onClose(); router.push(`/lesson/${id}`); }} testID="sheet-start" />
           ) : null}
           {canTrain ? <Button label="Потренироваться" kind="quiet" onPress={onTrain} testID="sheet-train" /> : null}
@@ -114,6 +131,7 @@ function LessonSheet({ id, onClose, onTrain }: { id: string; onClose: () => void
 
 function PathTab() {
   const { progress, currentLessonId, lessonState } = useProgress();
+  const { isPremium } = usePremium();
   const [sheet, setSheet] = useState<string | null>(null);
   const currentWeek = currentLessonId ? Number(currentLessonId.split('-')[0]) : ALL_WEEKS.length;
   const [initialIndex] = useState(currentWeek - 1);
@@ -124,7 +142,7 @@ function PathTab() {
     <View style={{ flex: 1 }}>
       <FlatList
         data={ALL_WEEKS}
-        extraData={extra}
+        extraData={[extra, isPremium]}
         keyExtractor={(w) => String(w.n)}
         initialScrollIndex={initialIndex}
         getItemLayout={(_, index) => ({ length: WEEK_HEIGHT, offset: WEEK_HEIGHT * index, index })}
@@ -134,10 +152,10 @@ function PathTab() {
         testID="path"
         renderItem={({ item: week }) => (
           <View style={{ height: WEEK_HEIGHT }}>
-            <WeekBanner week={week} />
+            <WeekBanner week={week} paidLock={isPaidWeek(week) && !isPremium} />
             {Array.from({ length: LESSONS_PER_WEEK }, (_, i) => {
               const id = lessonId(week.n, i + 1);
-              return <PathNode key={id} week={week} n={i + 1} state={lessonState(id)} current={id === currentLessonId} onPress={() => setSheet(id)} />;
+              return <PathNode key={id} week={week} n={i + 1} state={lessonState(id)} current={id === currentLessonId} paidLock={isPaidWeek(week) && !isPremium} onPress={() => setSheet(id)} />;
             })}
           </View>
         )}
@@ -254,6 +272,7 @@ function LettersTab() {
 function PracticeTab() {
   const c = useColors();
   const { progress } = useProgress();
+  const { tutorLeft } = usePremium();
   const items = useMemo(() => knownItems(progress.done), [progress.done]);
   const weak = items.filter((x) => (progress.mistakes[x.id] ?? 0) > 0).length;
   const due = dueItems(progress.done, progress.srs, dayKey(new Date())).length;
@@ -272,7 +291,9 @@ function PracticeTab() {
           </Khatam>
           <View style={{ flex: 1, minWidth: 0 }}>
             <T size={17} weight="bold">Спросить ИИ-учителя</T>
-            <T size={14} tone="muted">Объяснит правило или слово по-русски</T>
+            <T size={14} tone="muted">
+              {tutorLeft === Infinity ? 'Объяснит правило или слово по-русски' : `Объяснит по-русски. Сегодня осталось ${tutorLeft} из ${FREE_TUTOR_PER_DAY}`}
+            </T>
           </View>
         </Pressable>
       {items.length === 0 ? (
@@ -415,6 +436,40 @@ function SettingsBlock() {
   );
 }
 
+/** Подписка в профиле */
+function PremiumBlock() {
+  const c = useColors();
+  const { isPremium, testPremium, setTestPremium } = usePremium();
+  const manage = Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions';
+  return (
+    <View style={{ gap: 10, padding: 16, borderRadius: 20, borderWidth: isPremium ? 1.5 : 1, borderColor: isPremium ? c.gold : c.line, backgroundColor: c.surface, boxShadow: c.shadow }} testID="premium-block">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Khatam size={40} fill={isPremium ? c.gold : c.line}>
+          <T size={15} weight="bold" style={{ color: isPremium ? c.onAccent : c.muted, lineHeight: 18 }}>★</T>
+        </Khatam>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T size={17} weight="bold">{isPremium ? 'Алиф Премиум' : 'Бесплатная версия'}</T>
+          <T size={14} tone="muted">{isPremium ? 'Открыты все этапы и ИИ-учитель' : 'Открыты алфавит и чтение (этапы 1–2)'}</T>
+        </View>
+      </View>
+      {isPremium ? (
+        Platform.OS !== 'web' ? <Button label="Управлять подпиской" kind="quiet" onPress={() => Linking.openURL(manage)} testID="manage-premium" /> : null
+      ) : (
+        <Button label="Попробовать Премиум" onPress={() => router.push('/premium')} testID="open-premium" />
+      )}
+      {TEST_MODE ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T>Режим проверки: Премиум включён</T>
+            <T size={13} tone="muted">Выключите, чтобы увидеть бесплатную версию глазами ученика</T>
+          </View>
+          <Switch value={testPremium} onValueChange={setTestPremium} trackColor={{ true: c.accent, false: c.line }} testID="test-premium-switch" />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function ProfileTab() {
   const { progress, liveStreak, currentLessonId } = useProgress();
   const doneCount = Object.keys(progress.done).length;
@@ -435,6 +490,7 @@ function ProfileTab() {
         <Stat value={`${week} / ${ALL_WEEKS.length}`} label="неделя курса" />
         <Stat value={String(words)} label="знакомых элементов" />
       </View>
+      <PremiumBlock />
       <SettingsBlock />
       <Button label="Изменить имя" kind="quiet" onPress={() => router.push('/welcome')} testID="change-name" />
       {Footer ? <Footer /> : null}

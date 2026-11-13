@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PremiumProvider } from '@/lib/premium';
 import { ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
 import { refreshVoice } from '@/lib/voice';
@@ -37,6 +38,7 @@ function Routes() {
         <Stack.Screen name="index" />
         <Stack.Screen name="lesson/[id]" />
         <Stack.Screen name="tutor" />
+        <Stack.Screen name="premium" options={{ animation: 'slide_from_bottom' }} />
       </Stack.Protected>
       <Stack.Screen name="welcome" />
     </Stack>
@@ -64,8 +66,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ProgressProvider>
-        <StatusBar style="auto" />
-        <Routes />
+        <PremiumProvider>
+          <StatusBar style="auto" />
+          <Routes />
+        </PremiumProvider>
       </ProgressProvider>
     </SafeAreaProvider>
   );
