@@ -27,7 +27,16 @@ export type ChoiceTask = {
   explainRu?: string;
 };
 export type IntroTask = { type: 'intro'; key: string; item: Item };
-export type TipTask = { type: 'tip'; key: string; title: string; text: string; /** Надпись над заголовком, по умолчанию «Правило недели» */ label?: string };
+export type TipTask = {
+  type: 'tip';
+  key: string;
+  title: string;
+  text: string;
+  /** Надпись над заголовком, по умолчанию «Правило недели» */
+  label?: string;
+  /** Пример отдельной карточкой со звуком, чтобы арабский не рвался внутри русского текста */
+  example?: { ar: string; ru: string };
+};
 export type ReadTask = { type: 'read'; key: string; title: string; lines: Line[] };
 export type MatchTask = { type: 'match'; key: string; pairs: Item[] };
 export type BuildTask = {

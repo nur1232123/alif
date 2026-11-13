@@ -107,6 +107,13 @@ export function useTip(task: TipTask, onDone: () => void): Slots {
         <T size={13} weight="bold" tone="accent">{task.label ?? 'ПРАВИЛО НЕДЕЛИ'}</T>
         <T size={22} weight="bold" style={{ lineHeight: 30 }}>{task.title}</T>
         <T size={18} style={{ lineHeight: 28 }}>{task.text}</T>
+        {task.example ? (
+          <View style={{ alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, backgroundColor: c.soft }} testID="tip-example">
+            <Ar size={34} style={{ lineHeight: 58 }}>{task.example.ar}</Ar>
+            <T size={16} weight="medium" style={{ textAlign: 'center' }}>{task.example.ru}</T>
+            <ListenButton text={task.example.ar} testID="tip-listen" />
+          </View>
+        ) : null}
         <VoiceNotice />
       </View>
     ),
