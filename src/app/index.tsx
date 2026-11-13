@@ -170,14 +170,18 @@ function LetterSheet({ letter, onClose }: { letter: Item; onClose: () => void })
   return (
     <>
       <Pressable accessibilityLabel="Закрыть" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: c.ink, opacity: 0.25 }]} testID="letter-close" />
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+      {/* Карточка прижата к низу экрана и не выше 85% его высоты */}
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'center' }]}>
         <ScrollView
-          style={{ width: '100%', maxWidth: 560, maxHeight: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: c.surface }}
-          contentContainerStyle={{ gap: 12, padding: 20 }}
+          style={{ flexGrow: 0, width: '100%', maxWidth: 560, maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.surface, boxShadow: c.shadow }}
+          contentContainerStyle={{ gap: 12, padding: 20, paddingBottom: 24 }}
           testID="letter-sheet"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <Ar size={88} style={{ lineHeight: 140 }}>{letter.ar}</Ar>
+            {/* Буква в своей плитке: не вылезает за край и не оставляет пустоты */}
+            <View style={{ width: 104, height: 104, borderRadius: 22, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <Ar size={64} bold style={{ lineHeight: 104 }}>{letter.ar}</Ar>
+            </View>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
               <T size={24} weight="bold" style={{ lineHeight: 30 }}>{letter.ru}</T>
               <T tone="muted" size={14}>{letter.note}</T>
