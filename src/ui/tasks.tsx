@@ -104,7 +104,7 @@ export function useTip(task: TipTask, onDone: () => void): Slots {
         <Khatam size={72} fill={c.accent}>
           <T size={26} weight="bold" style={{ color: c.onAccent, lineHeight: 32 }}>!</T>
         </Khatam>
-        <T size={13} weight="bold" tone="accent">ПРАВИЛО НЕДЕЛИ</T>
+        <T size={13} weight="bold" tone="accent">{task.label ?? 'ПРАВИЛО НЕДЕЛИ'}</T>
         <T size={22} weight="bold" style={{ lineHeight: 30 }}>{task.title}</T>
         <T size={18} style={{ lineHeight: 28 }}>{task.text}</T>
         <VoiceNotice />
@@ -227,6 +227,8 @@ const HEADINGS: Record<ChoiceTask['kind'], string> = {
   'first-letter': 'С какой буквы начинается слово?',
   text: 'Выберите правильный ответ',
   reply: 'Что ответить?',
+  number: 'Какое это число?',
+  'number-ar': 'Найдите это число',
 };
 
 function OptionCard({ option, index, task, selected, checked, noVoice, onPress }: {

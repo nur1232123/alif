@@ -1,6 +1,8 @@
 import { ALL_WEEKS, STAGES } from '../src/data/course';
 import { LETTERS } from '../src/data/letters';
 import type { Item } from '../src/data/types';
+import { MARKS, toArabicDigits } from '../src/data/reference';
+import { buildNumbersLevel } from '../src/lib/numbers';
 import {
   ALL_LESSONS,
   buildLesson,
@@ -191,6 +193,25 @@ for (let run = 0; run < 100; run++) {
 }
 const allDone = Object.fromEntries(ALL_LESSONS.map((l) => [l.id, 1]));
 for (let run = 0; run < 200; run++) buildPractice(allDone, {}).forEach((t) => checkTask(t, 'тренировка всего курса'));
+
+// Мини-курс «Учим цифры»: у каждого задания три разных варианта и один ответ, у вопросов есть что показать
+for (let run = 0; run < 300; run++) {
+  for (const level of [1, 2, 3] as const) {
+    buildNumbersLevel(level, Math.random).forEach((t) => {
+      checkTask(t, `цифры, уровень ${level}`);
+      if (t.type === 'choice') {
+        if (t.kind === 'number' && !t.ar) bad(`цифры ${level}: нет числа в вопросе`);
+        if (t.kind === 'number-ar' && !t.ru) bad(`цифры ${level}: нет числа в вопросе`);
+        if (t.itemId) bad(`цифры ${level}: задание влияет на повторение`);
+        const answer = t.options.find((o) => o.id === t.answerId)!;
+        if (t.kind === 'number' && level === 2 && toArabicDigits(Number(answer.ru)) !== t.ar) bad(`цифры 2: неверный ответ ${t.ar} → ${answer.ru}`);
+      }
+    });
+  }
+}
+for (const m of MARKS) {
+  if (!HARAKAT.test(m.sample)) bad(`огласовка ${m.name}: нет знака в образце`);
+}
 
 const unique = [...new Set(problems)];
 if (unique.length) {

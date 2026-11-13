@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
 import { buildLesson, buildPractice, getLesson, isGraded, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
+import { buildNumbersLevel, NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId, parseNumbersLevel, type NumbersLevel } from '@/lib/numbers';
 import { isPaidWeek, usePremium } from '@/lib/premium';
 import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
@@ -92,6 +93,37 @@ function Failed({ score, total, onRetry }: { score: number; total: number; onRet
   );
 }
 
+/** Итог уровня мини-курса «Учим цифры» */
+function NumbersFinished({ level, score, total, onRetry }: { level: NumbersLevel; score: number; total: number; onRetry: () => void }) {
+  const c = useColors();
+  const passed = total > 0 && score / total >= NUMBERS_PASS;
+  const next = NUMBER_LEVELS.find((l) => l.level === level + 1);
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  return (
+    <Screen
+      footer={
+        <View style={{ gap: 10 }}>
+          {passed && next ? <Button label={`Уровень ${next.level}: ${next.title}`} onPress={() => router.replace(`/lesson/${numbersLessonId(next.level)}`)} testID="numbers-next" /> : null}
+          {!passed ? <Button label="Попробовать ещё раз" onPress={onRetry} testID="numbers-retry" /> : null}
+          <Button label="К цифрам" kind={passed && !next ? 'primary' : 'quiet'} onPress={back} testID="numbers-back" />
+        </View>
+      }
+      testID="result-numbers"
+    >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+        <Khatam size={96} fill={passed ? c.gold : c.line}>
+          <T size={34} weight="bold" style={{ color: passed ? c.onAccent : c.muted, lineHeight: 40 }}>★</T>
+        </Khatam>
+        <T size={24} weight="bold" style={{ lineHeight: 32, textAlign: 'center' }}>{passed ? `Уровень ${level} пройден` : 'Почти получилось'}</T>
+        <T size={18} style={{ textAlign: 'center' }}>С первого раза верно: {score} из {total}</T>
+        <T tone="muted" style={{ textAlign: 'center' }}>
+          {passed ? (next ? 'Звезда ваша. Следующий уровень открыт.' : 'Все три уровня пройдены: теперь вы читаете арабские числа.') : `Для звезды нужно ${Math.ceil(total * NUMBERS_PASS)} верных ответов с первого раза.`}
+        </T>
+      </View>
+    </Screen>
+  );
+}
+
 function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRef | null; score: number; total: number; mistakes: number; result: FinishResult | null }) {
   const c = useColors();
   const { progress, liveStreak, currentLessonId, lessonState } = useProgress();
@@ -173,14 +205,19 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
   );
 }
 
-function Runner({ lesson }: { lesson: LessonRef | null }) {
-  const { progress, finishLesson, finishPractice, recordAnswer } = useProgress();
+function Runner({ lesson, numbers }: { lesson: LessonRef | null; numbers?: NumbersLevel }) {
+  const { progress, finishLesson, finishPractice, finishNumbers, recordAnswer } = useProgress();
   const [attempt, setAttempt] = useState(0);
   const initial = useMemo<Task[]>(
-    () => (lesson ? buildLesson(lesson, Math.random, voiceReady()) : buildPractice(progress.done, progress.mistakes, 10, Math.random, progress.srs, dayKey(new Date()))),
+    () =>
+      numbers
+        ? buildNumbersLevel(numbers, Math.random)
+        : lesson
+          ? buildLesson(lesson, Math.random, voiceReady())
+          : buildPractice(progress.done, progress.mistakes, 10, Math.random, progress.srs, dayKey(new Date())),
     // Задания выбираются один раз на попытку и не меняются от новых ответов
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [lesson?.id, attempt],
+    [lesson?.id, numbers, attempt],
   );
   const [queue, setQueue] = useState<Task[]>(initial);
   const [index, setIndex] = useState(0);
@@ -198,6 +235,11 @@ function Runner({ lesson }: { lesson: LessonRef | null }) {
   const uniqueTotal = new Set(queue.filter(isGraded).map((t) => t.key)).size - skipped;
 
   const finish = (finalScore: number, total = uniqueTotal) => {
+    if (numbers) {
+      finishNumbers(numbers, finalScore, total);
+      setFinished(true);
+      return;
+    }
     if (lesson && isExam && finalScore < passMark(total)) {
       setFailed(true);
       return;
@@ -258,6 +300,17 @@ function Runner({ lesson }: { lesson: LessonRef | null }) {
       />
     );
   }
+  const restartNumbers = () => {
+    setAttempt(attempt + 1);
+    setQueue(buildNumbersLevel(numbers!, Math.random));
+    setIndex(0);
+    setScore(0);
+    setMistakes(0);
+    setMissed([]);
+    setSkipped(0);
+    setFinished(false);
+  };
+  if (finished && numbers) return <NumbersFinished level={numbers} score={score} total={uniqueTotal} onRetry={restartNumbers} />;
   if (finished) return <Finished lesson={lesson} score={score} total={uniqueTotal} mistakes={mistakes} result={result} />;
 
   const task = queue[index];
@@ -285,6 +338,12 @@ export default function LessonScreen() {
   const { progress, lessonState } = useProgress();
   const { isPremium } = usePremium();
 
+  const level = parseNumbersLevel(id);
+  if (level) {
+    // Уровень открывается, когда за предыдущий получена звезда
+    if (level > 1 && (progress.numbers?.[level - 1] ?? 0) < NUMBERS_PASS) return <Redirect href="/" />;
+    return <Runner key={id} lesson={null} numbers={level} />;
+  }
   if (id === 'practice') {
     if (Object.keys(progress.done).length === 0) return <Redirect href="/" />;
     return <Runner key="practice" lesson={null} />;

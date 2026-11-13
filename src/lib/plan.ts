@@ -10,7 +10,7 @@ const LESSON_SIZE = 9;
 /** Сколько нового в одном уроке */
 const NEW_PER_LESSON = 3;
 
-export type ChoiceKind = 'see-hear' | 'hear-see' | 'meaning' | 'reverse' | 'form' | 'first-letter' | 'text' | 'reply';
+export type ChoiceKind = 'see-hear' | 'hear-see' | 'meaning' | 'reverse' | 'form' | 'first-letter' | 'text' | 'reply' | 'number' | 'number-ar';
 export type Option = { id: string; ar?: string; say?: string; ru?: string };
 
 export type ChoiceTask = {
@@ -27,7 +27,7 @@ export type ChoiceTask = {
   explainRu?: string;
 };
 export type IntroTask = { type: 'intro'; key: string; item: Item };
-export type TipTask = { type: 'tip'; key: string; title: string; text: string };
+export type TipTask = { type: 'tip'; key: string; title: string; text: string; /** Надпись над заголовком, по умолчанию «Правило недели» */ label?: string };
 export type ReadTask = { type: 'read'; key: string; title: string; lines: Line[] };
 export type MatchTask = { type: 'match'; key: string; pairs: Item[] };
 export type BuildTask = {

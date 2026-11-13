@@ -9,6 +9,7 @@ import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
 import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
+import { NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId } from '@/lib/numbers';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
 import { say, sayAll } from '@/lib/speech';
@@ -284,6 +285,42 @@ function MarksSection() {
   );
 }
 
+/** Мини-курс: три уровня по порядку, звезда за каждый */
+function NumbersCourse() {
+  const c = useColors();
+  const { progress } = useProgress();
+  const best = progress.numbers ?? {};
+  return (
+    <View style={{ gap: 10, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, boxShadow: c.shadow }} testID="numbers-course">
+      <T size={18} weight="bold">Учим цифры</T>
+      <T size={14} tone="muted" style={{ marginTop: -4 }}>Три коротких уровня. Звезда за каждый открывает следующий.</T>
+      {NUMBER_LEVELS.map(({ level, title, text }) => {
+        const star = (best[level] ?? 0) >= NUMBERS_PASS;
+        const open = level === 1 || (best[level - 1] ?? 0) >= NUMBERS_PASS;
+        return (
+          <Pressable
+            key={level}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !open }}
+            disabled={!open}
+            onPress={() => router.push(`/lesson/${numbersLessonId(level)}`)}
+            testID={`numbers-level-${level}`}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: open ? c.soft : 'transparent', borderWidth: open ? 0 : 1, borderColor: c.line, opacity: pressed ? 0.8 : 1 })}
+          >
+            <Khatam size={44} fill={star ? c.gold : open ? c.accent : c.line}>
+              <T size={16} weight="bold" style={{ color: open ? c.onAccent : c.muted, lineHeight: 20 }}>{star ? '★' : String(level)}</T>
+            </Khatam>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T weight="bold" tone={open ? 'ink' : 'muted'}>{title}</T>
+              <T size={13} tone="muted">{open ? text : 'Откроется после звезды за прошлый уровень'}</T>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Арабские цифры и как читаются числа */
 function NumbersSection() {
   const c = useColors();
@@ -295,7 +332,9 @@ function NumbersSection() {
   };
   return (
     <View style={{ gap: 14 }} testID="numbers">
-      <T tone="muted" size={14}>
+      <NumbersCourse />
+      <T size={17} weight="bold">Все цифры</T>
+      <T tone="muted" size={14} style={{ marginTop: -8 }}>
         В арабском тексте часто пишут такие цифры. Числа из нескольких цифр читаются слева направо, как у нас, хотя буквы идут справа налево.
       </T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

@@ -24,6 +24,8 @@ export type Progress = {
   settings: Settings;
   /** Только для веб-версии: все уроки открыты для просмотра */
   unlocked?: boolean;
+  /** Мини-курс «Учим цифры»: лучший результат по уровням, доля от 0 до 1 */
+  numbers?: Record<string, number>;
 };
 
 export type Settings = {
@@ -86,6 +88,8 @@ type Ctx = {
   setName: (name: string) => void;
   finishLesson: (id: string, score: number, total: number) => FinishResult;
   finishPractice: () => void;
+  /** Записывает уровень мини-курса цифр и возвращает лучший результат */
+  finishNumbers: (level: number, score: number, total: number) => number;
   recordAnswer: (itemId: string, correct: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   /** Следующий урок по порядку, null если курс пройден */
@@ -184,6 +188,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     save({ ...current, streak: nextStreak(current), lastActive: today() });
   }, [save]);
 
+  const finishNumbers = useCallback(
+    (level: number, score: number, total: number) => {
+      const current = latest.current;
+      const ratio = total > 0 ? score / total : 0;
+      const best = Math.max(ratio, current.numbers?.[level] ?? 0);
+      save({ ...current, numbers: { ...current.numbers, [level]: best }, streak: nextStreak(current), lastActive: today() });
+      return best;
+    },
+    [save],
+  );
+
   const recordAnswer = useCallback(
     (itemId: string, correct: boolean) => {
       const current = latest.current;
@@ -226,10 +241,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, updateSettings,
+      ready, progress, isNewUser, setName, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings,
       currentLessonId, lessonState, todayCount, liveStreak, replaceProgress: save,
     }),
-    [ready, progress, isNewUser, setName, finishLesson, finishPractice, recordAnswer, updateSettings, currentLessonId, lessonState, todayCount, liveStreak, save],
+    [ready, progress, isNewUser, setName, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings, currentLessonId, lessonState, todayCount, liveStreak, save],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
