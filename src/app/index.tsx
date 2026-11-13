@@ -4,7 +4,7 @@ import { FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import { LETTERS } from '@/data/letters';
-import { MARKS, NUMBER_SAMPLES, NUMERALS_REF } from '@/data/reference';
+import { MARKS, NUMBER_SAMPLES, NUMERALS_REF, randomSamples, type NumberSample } from '@/data/reference';
 import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
@@ -287,7 +287,12 @@ function MarksSection() {
 /** Арабские цифры и как читаются числа */
 function NumbersSection() {
   const c = useColors();
-  const [shown, setShown] = useState<string[]>([]);
+  const [samples, setSamples] = useState<NumberSample[]>(NUMBER_SAMPLES);
+  const [shown, setShown] = useState<number[]>([]);
+  const refresh = () => {
+    setSamples(randomSamples(Math.random));
+    setShown([]);
+  };
   return (
     <View style={{ gap: 14 }} testID="numbers">
       <T tone="muted" size={14}>
@@ -311,16 +316,20 @@ function NumbersSection() {
         ))}
       </View>
       <T size={17} weight="bold">Попробуйте прочитать</T>
+      <T size={14} tone="muted" style={{ marginTop: -8 }}>Прочитайте число про себя, потом нажмите, чтобы проверить и послушать.</T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {NUMBER_SAMPLES.map((n) => {
-          const open = shown.includes(n.value);
+        {samples.map((n, i) => {
+          const open = shown.includes(i);
           return (
             <Pressable
-              key={n.value}
+              key={`${n.value}-${i}`}
               accessibilityRole="button"
               accessibilityLabel={open ? `${n.value}, ${n.ru}` : 'Показать ответ'}
-              onPress={() => setShown(open ? shown.filter((v) => v !== n.value) : [...shown, n.value])}
-              testID={`sample-${n.value}`}
+              onPress={() => {
+                if (!open) say(n.digits);
+                setShown(open ? shown.filter((v) => v !== i) : [...shown, i]);
+              }}
+              testID={`sample-${i}`}
               style={{ flexBasis: '45%', flexGrow: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: open ? c.goodSoft : c.soft, paddingVertical: 4 }}
             >
               <Ar size={32} bold style={{ lineHeight: 52 }}>{n.digits}</Ar>
@@ -329,6 +338,7 @@ function NumbersSection() {
           );
         })}
       </View>
+      <Button label="Другие числа" kind="quiet" onPress={refresh} testID="samples-refresh" />
     </View>
   );
 }

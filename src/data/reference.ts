@@ -146,8 +146,46 @@ export const NUMERALS_REF: Numeral[] = [
   { digit: '١٠٠٠', value: '1000', word: 'أَلْفٌ', reads: 'альф' },
 ];
 
+export type NumberSample = { digits: string; value: string; ru: string };
+
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+
+/** 2026 → ٢٠٢٦ */
+export const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => AR_DIGITS[Number(d)]);
+
+const UNITS = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+const TEENS = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+const TENS = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+const HUNDREDS = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
+const THOUSANDS = ['', 'тысяча', 'две тысячи', 'три тысячи', 'четыре тысячи', 'пять тысяч', 'шесть тысяч', 'семь тысяч', 'восемь тысяч', 'девять тысяч'];
+
+/** Число от 0 до 9999 словами по-русски: 786 → «семьсот восемьдесят шесть» */
+export function russianNumber(n: number): string {
+  if (n === 0) return UNITS[0];
+  const words: string[] = [];
+  const th = Math.floor(n / 1000);
+  const h = Math.floor((n % 1000) / 100);
+  const rest = n % 100;
+  if (th) words.push(THOUSANDS[th]);
+  if (h) words.push(HUNDREDS[h]);
+  if (rest >= 10 && rest < 20) words.push(TEENS[rest - 10]);
+  else {
+    if (rest >= 20) words.push(TENS[Math.floor(rest / 10)]);
+    if (rest % 10) words.push(UNITS[rest % 10]);
+  }
+  return words.join(' ');
+}
+
+const sample = (n: number): NumberSample => ({ digits: toArabicDigits(n), value: String(n), ru: russianNumber(n) });
+
+/** Четыре новых числа: двузначное, ещё одно двузначное, трёхзначное и четырёхзначное */
+export function randomSamples(random: () => number): NumberSample[] {
+  const between = (lo: number, hi: number) => lo + Math.floor(random() * (hi - lo + 1));
+  return [sample(between(11, 49)), sample(between(50, 99)), sample(between(100, 999)), sample(between(1000, 9999))];
+}
+
 /** Примеры, чтобы потренироваться читать числа */
-export const NUMBER_SAMPLES: { digits: string; value: string; ru: string }[] = [
+export const NUMBER_SAMPLES: NumberSample[] = [
   { digits: '٢٠٢٦', value: '2026', ru: 'год' },
   { digits: '١٤', value: '14', ru: 'четырнадцать' },
   { digits: '٣٥', value: '35', ru: 'тридцать пять' },
