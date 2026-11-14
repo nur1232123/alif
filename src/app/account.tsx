@@ -156,7 +156,7 @@ export default function AccountScreen() {
           style={input}
         />
         {busy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Получить код" onPress={requestCode} disabled={!email.trim()} testID="send-code" />}
-        <T size={13} tone="muted" style={{ textAlign: 'center' }}>Пришлём код из 6 цифр. Пароль не нужен.</T>
+        <T size={13} tone="muted" style={{ textAlign: 'center' }}>Пришлём код на почту. Пароль не нужен.</T>
       </View>
     );
   } else {
@@ -169,7 +169,7 @@ export default function AccountScreen() {
           accessibilityLabel="Код из письма"
           autoComplete="one-time-code"
           keyboardType="number-pad"
-          maxLength={8}
+          maxLength={10}
           onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
           onSubmitEditing={enter}
           placeholder="——————"
