@@ -45,6 +45,7 @@ export function Screen({ children, footer, testID }: { children: ReactNode; foot
   );
 }
 
+// Русский текст всегда слева направо, даже если строка начинается с арабского слова
 export function T({ children, style, tone = 'ink', weight = 'regular', size = 16, testID, lines }: {
   children: ReactNode;
   testID?: string;
@@ -57,7 +58,7 @@ export function T({ children, style, tone = 'ink', weight = 'regular', size = 16
 }) {
   const c = useColors();
   return (
-    <Text testID={testID} numberOfLines={lines} style={[{ color: c[tone], fontFamily: fonts[weight], fontSize: size, lineHeight: Math.round(size * 1.4) }, style]}>
+    <Text testID={testID} numberOfLines={lines} style={[{ color: c[tone], fontFamily: fonts[weight], fontSize: size, lineHeight: Math.round(size * 1.4), writingDirection: 'ltr', textAlign: 'left' }, style]}>
       {children}
     </Text>
   );

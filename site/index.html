@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Алиф — арабский язык с нуля</title>
+<meta name="description" content="Приложение для изучения арабского на русском: алфавит, чтение, слова, тексты и разговор. Короткие уроки, проверка произношения и ИИ-учитель. Алфавит и чтение бесплатно.">
+<meta property="og:title" content="Алиф — арабский язык с нуля">
+<meta property="og:description" content="Короткие уроки на русском: от первой буквы до разговора. Алфавит и чтение бесплатно.">
+<meta property="og:image" content="img/icon.png">
+<meta name="theme-color" content="#0B6E5F">
+<link rel="icon" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Scheherazade+New&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<!-- Ссылка на APK: впишите её в data-apk, и кнопки «Скачать» заработают. Пока пусто — показывается «скоро». -->
+<body data-apk="">
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="img/icon.png" alt="" width="36" height="36">Алиф</a>
+    <nav aria-label="Разделы">
+      <a href="#course">Курс</a>
+      <a href="#prices">Цены</a>
+      <a href="#faq">Вопросы</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Арабский с первой буквы</h1>
+        <p class="lead">Короткие уроки на русском языке: за год от алфавита до простого разговора. Буквы, чтение, слова и диалоги, а ИИ-учитель объяснит, если что-то непонятно.</p>
+        <div class="actions">
+          <a class="btn btn-main" data-download href="#get">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span>Скачать для Android</span>
+          </a>
+          <a class="btn btn-quiet" href="#course">Как устроен курс</a>
+        </div>
+        <p class="note" data-download-note>Алфавит и чтение бесплатно, без рекламы.</p>
+      </div>
+
+      <div class="stage" id="stage" aria-live="polite">
+        <div class="stage-top">
+          <span>Буквы соединяются в слово</span>
+        </div>
+        <div class="word-box">
+          <div class="letters" lang="ar" aria-hidden="true"></div>
+          <div class="joined" lang="ar"></div>
+        </div>
+        <div class="stage-bottom">
+          <p class="meaning"></p>
+          <button class="again" type="button">Другое слово</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="course" id="course">
+    <div class="wrap">
+      <div>
+        <div class="section-head">
+          <h2>52 недели, по три урока в день</h2>
+          <p class="lead">Каждый урок занимает несколько минут. Новое повторяется, пока не запомнится, а ошибки возвращаются в следующих уроках.</p>
+        </div>
+        <ol class="path">
+          <li class="free">
+            <span class="star" lang="ar" aria-hidden="true">١</span>
+            <div>
+              <h3>Алфавит <span class="weeks">1 неделя</span> <span class="tag">Бесплатно</span></h3>
+              <p>Все 28 букв: как звучат, как пишутся в начале, середине и конце слова.</p>
+            </div>
+          </li>
+          <li class="free">
+            <span class="star" lang="ar" aria-hidden="true">٢</span>
+            <div>
+              <h3>Соединение букв <span class="weeks">4 недели</span> <span class="tag">Бесплатно</span></h3>
+              <p>Огласовки, долгие гласные, сукун, шадда и танвин. Читаете слоги, а потом первые слова.</p>
+            </div>
+          </li>
+          <li>
+            <span class="star" lang="ar" aria-hidden="true">٣</span>
+            <div>
+              <h3>Слова <span class="weeks">23 недели</span></h3>
+              <p>Приветствие, семья, дом, еда, город, время и погода. Слова сразу складываются в выражения.</p>
+            </div>
+          </li>
+          <li>
+            <span class="star" lang="ar" aria-hidden="true">٤</span>
+            <div>
+              <h3>Чтение <span class="weeks">14 недель</span></h3>
+              <p>От двух слов к коротким текстам: мой день, моя семья, в магазине, в ресторане.</p>
+            </div>
+          </li>
+          <li>
+            <span class="star" lang="ar" aria-hidden="true">٥</span>
+            <div>
+              <h3>Разговор <span class="weeks">10 недель</span></h3>
+              <p>Диалоги на рынке, у врача, в гостинице и в университете. Отвечаете вслух, приложение проверяет.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+      <div class="phone"><img src="img/path.webp" alt="Экран приложения: путь первой недели, буквы в восьмиконечных звёздах" width="390" height="844" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="inside">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Что в приложении</h2>
+      </div>
+      <div class="shots">
+        <figure>
+          <div class="phone"><img src="img/letter.webp" alt="Урок: новая буква алиф со звуком, формами и словом" width="390" height="844" loading="lazy"></div>
+          <figcaption><h3>Буква со звуком</h3><p>Слушаете, смотрите формы и слово с этой буквой.</p></figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><img src="img/speak.webp" alt="Задание: скажите название буквы в микрофон" width="390" height="844" loading="lazy"></div>
+          <figcaption><h3>Скажите вслух</h3><p>Произносите в микрофон, ИИ проверяет, что получилось.</p></figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><img src="img/tutor.webp" alt="Чат с ИИ-учителем: объяснение разницы между буквами" width="390" height="844" loading="lazy"></div>
+          <figcaption><h3>ИИ-учитель</h3><p>Отвечает по-русски на вопросы о буквах, словах и правилах.</p></figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><img src="img/letters.webp" alt="Справочник: все буквы алфавита" width="390" height="844" loading="lazy"></div>
+          <figcaption><h3>Справочник</h3><p>Алфавит, огласовки и арабские цифры всегда под рукой.</p></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="prices">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Начать можно бесплатно</h2>
+        <p class="lead">Алфавит и чтение открыты всем. Премиум нужен, когда вы готовы идти дальше.</p>
+      </div>
+      <div class="prices">
+        <div class="plan plan-free">
+          <h3>Бесплатно</h3>
+          <div class="price"><b>$0</b></div>
+          <ul>
+            <li>Этапы 1 и 2: алфавит и чтение</li>
+            <li>Тренировки и справочник</li>
+            <li>ИИ-учитель: 3 вопроса в день</li>
+            <li>Без рекламы</li>
+          </ul>
+        </div>
+        <div class="plan plan-premium">
+          <h3>Алиф Премиум</h3>
+          <div class="price"><b>$4.99</b><span class="muted">в месяц</span></div>
+          <div class="yearly"><span>Или <b>$29.99 в год</b>, это $2.50 в месяц</span></div>
+          <ul>
+            <li>Все 5 этапов, 52 недели курса</li>
+            <li>ИИ-учитель без ограничений</li>
+            <li>Тексты и диалоги с озвучкой</li>
+            <li>Первые 7 дней бесплатно</li>
+          </ul>
+          <p class="muted small">Подписка продлевается автоматически. Отменить можно в любой момент в приложении: Профиль, «Моя подписка». Если не подошло, вернём деньги в течение 14 дней.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Вопросы</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Нужно ли что-то знать заранее?</summary>
+          <div><p>Нет. Курс начинается с первой буквы, все объяснения на русском.</p></div>
+        </details>
+        <details>
+          <summary>Сколько времени нужно в день?</summary>
+          <div><p>Три коротких урока, обычно 10–15 минут вместе. Можно поставить напоминание в профиле.</p></div>
+        </details>
+        <details>
+          <summary>Есть версия для iPhone?</summary>
+          <div><p>Пока только Android. Версия для iPhone появится позже.</p></div>
+        </details>
+        <details>
+          <summary>Можно ли оплатить российской картой?</summary>
+          <div><p>Пока нет: платёжная система не принимает карты российских банков. Мы ищем способ это исправить. Бесплатная часть курса доступна всем.</p></div>
+        </details>
+        <details>
+          <summary>Как отменить подписку?</summary>
+          <div><p>В приложении: Профиль, «Моя подписка», «Отменить подписку». Или по ссылке в письме с чеком от Paddle. Премиум работает до конца оплаченного срока.</p></div>
+        </details>
+        <details>
+          <summary>Кто принимает оплату?</summary>
+          <div><p>Оплату на сайте принимает Paddle.com. Он продавец по этому заказу, присылает чек и отвечает за налоги. Данные карты получает только Paddle.</p></div>
+        </details>
+        <details>
+          <summary>Прогресс не потеряется, если сменить телефон?</summary>
+          <div><p>Не потеряется, если войти по почте: прогресс и подписка сохраняются в аккаунте. Пароль не нужен, приходит код.</p></div>
+        </details>
+        <details>
+          <summary>Что происходит с моим голосом и вопросами учителю?</summary>
+          <div><p>Запись голоса отправляется на проверку и сразу удаляется. Вопросы учителю обрабатывает Google Gemini, поэтому не пишите в них личные данные. Подробно в <a href="privacy.html">политике конфиденциальности</a>.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="get" id="get">
+    <div class="wrap">
+      <div class="box">
+        <img src="img/icon.png" alt="" width="112" height="112">
+        <div>
+          <h2>Первая буква ждёт</h2>
+          <p class="lead" data-get-text>Скачайте приложение и пройдите первый урок за пять минут.</p>
+          <div class="actions">
+            <a class="btn btn-main" data-download href="#get">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+              <span>Скачать для Android</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <nav aria-label="Документы">
+      <a href="terms.html">Условия использования</a>
+      <a href="privacy.html">Конфиденциальность</a>
+      <a href="refund.html">Возврат денег</a>
+      <a data-mail hidden>Написать нам</a>
+    </nav>
+    <span class="copy">© 2026 Алиф</span>
+  </div>
+</footer>
+
+<script>
+  // Почта поддержки: впишите адрес, и в подвале появится ссылка «Написать нам»
+  const SUPPORT_EMAIL = '';
+  const mail = document.querySelector('[data-mail]');
+  if (SUPPORT_EMAIL) { mail.href = 'mailto:' + SUPPORT_EMAIL; mail.hidden = false; }
+
+  // Кнопки «Скачать»: пока APK нет, показываем «скоро»
+  const apk = document.body.dataset.apk;
+  document.querySelectorAll('[data-download]').forEach((a) => {
+    if (apk) { a.href = apk; a.setAttribute('download', ''); return; }
+    a.setAttribute('aria-disabled', 'true');
+    a.removeAttribute('href');
+    a.querySelector('span').textContent = 'Скоро для Android';
+  });
+  if (!apk) {
+    document.querySelector('[data-download-note]').textContent = 'Приложение проходит последние проверки. Алфавит и чтение будут бесплатны, без рекламы.';
+    document.querySelector('[data-get-text]').textContent = 'Android-версия выходит совсем скоро. Ссылка на скачивание появится здесь.';
+  }
+
+  // Буквы съезжаются и соединяются в слово
+  const WORDS = [
+    { letters: ['ك', 'ت', 'ا', 'ب'], word: 'كِتَابٌ', meaning: '«книга»' },
+    { letters: ['ق', 'ل', 'م'], word: 'قَلَمٌ', meaning: '«ручка»' },
+    { letters: ['ب', 'ي', 'ت'], word: 'بَيْتٌ', meaning: '«дом»' },
+    { letters: ['م', 'د', 'ر', 'س', 'ة'], word: 'مَدْرَسَةٌ', meaning: '«школа»' },
+    { letters: ['ب', 'ا', 'ب'], word: 'بَابٌ', meaning: '«дверь»' },
+  ];
+  const stage = document.getElementById('stage');
+  const lettersEl = stage.querySelector('.letters');
+  const joinedEl = stage.querySelector('.joined');
+  const meaningEl = stage.querySelector('.meaning');
+  let i = 0;
+  function show() {
+    const w = WORDS[i];
+    lettersEl.replaceChildren(...w.letters.map((l) => Object.assign(document.createElement('span'), { textContent: l })));
+    joinedEl.textContent = w.word;
+    meaningEl.textContent = w.meaning;
+    stage.classList.remove('play', 'done');
+    void stage.offsetWidth; // перезапуск анимации
+    stage.classList.add('play');
+  }
+  stage.querySelector('.again').addEventListener('click', () => { i = (i + 1) % WORDS.length; show(); });
+  show();
+</script>
+</body>
+</html>

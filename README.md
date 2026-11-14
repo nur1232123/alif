@@ -181,3 +181,15 @@ node scripts/test-make-audio.mjs
 - Уроки и слова: `src/data/course.ts`
 - Как собирается урок и сколько уроков в день: `src/lib/plan.ts`
 - Экраны: `src/app` и `src/ui`
+
+## Сайт
+
+Папка `site/` — сайт приложения: главная, условия, конфиденциальность и возврат денег.
+Он публикуется бесплатно на GitHub Pages: https://nur1232123.github.io/alif/
+
+- Один раз: на GitHub в репозитории Settings → Pages → Source: **GitHub Actions**.
+- Дальше сайт обновляется сам после каждого `git push`, если изменились `site/`, `TERMS.md` или `PRIVACY.md`.
+- Страницы `terms.html`, `privacy.html`, `refund.html` собираются из `TERMS.md` и `PRIVACY.md`: `python3 scripts/build-site.py`.
+- Ссылка на APK: атрибут `data-apk` у `<body>` в `site/index.html`. Пока он пустой, кнопки показывают «Скоро для Android».
+- Почта поддержки: `SUPPORT_EMAIL` в `site/index.html` и `ПОЧТА_ПОДДЕРЖКИ` / `SUPPORT_EMAIL` в `TERMS.md`, `PRIVACY.md`, `scripts/build-site.py`.
+- Свой домен: купить (около $10–15 в год), в Settings → Pages → Custom domain вписать его и добавить у регистратора DNS-запись, которую покажет GitHub.
