@@ -3,7 +3,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 // Адрес проекта и публичный ключ Supabase. Ключ публичный: данные защищены правилами доступа в базе
-const URL = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '');
+// Если вставили адрес вместе с /rest/v1/, отрезаем: клиенту нужен только адрес проекта
+const URL = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/\/(rest|auth)\/v1\/?$/, '').replace(/\/+$/, '');
 const KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY || '';
 
 /** Клиент Supabase, если проект подключён. Без него вход по почте просто не показывается */

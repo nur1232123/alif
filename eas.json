@@ -1,16 +1,22 @@
 {
-  "cli": { "appVersionSource": "remote" },
+  "cli": {
+    "appVersionSource": "remote"
+  },
   "build": {
     "base": {
       "env": {
         "EXPO_PUBLIC_SERVER_URL": "https://alif-server.onrender.com",
-        "EXPO_PUBLIC_PRIVACY_URL": "https://github.com/nur1232123/alif/blob/main/PRIVACY.md"
+        "EXPO_PUBLIC_PRIVACY_URL": "https://github.com/nur1232123/alif/blob/main/PRIVACY.md",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zbydiisxzylwcexikezl.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_rfK3fK3SNoCcStGCMDN4wQ_ihLc_AQO"
       }
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
-      "android": { "buildType": "apk" }
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "extends": "base",
