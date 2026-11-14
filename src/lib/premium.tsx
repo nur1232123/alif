@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
 import type { Week } from '@/data/types';
 import { useAccount } from './account';
 import { dayKey } from './progress';
-import { E2E, setRcUser, TEST_MODE } from './server';
+import { E2E, serverHeaders, serverReady, SERVER_URL, setRcUser, TEST_MODE, testWindow } from './server';
 
 /** Бесплатно: этапы 1–2 (алфавит и чтение). С этапа 3 нужен Премиум */
 export const FREE_STAGES = 2;
@@ -22,7 +22,16 @@ const RC_KEY = Platform.select({
   android: process.env.EXPO_PUBLIC_RC_ANDROID_KEY,
   default: '',
 }) ?? '';
-const storeReady = Platform.OS !== 'web' && RC_KEY.length > 0;
+/**
+ * Как принимается оплата. store — Google Play и App Store (версия из магазина).
+ * web — страница оплаты RevenueCat + Paddle в браузере (APK с сайта и пока нет Google Play)
+ */
+export const BILLING: 'store' | 'web' = process.env.EXPO_PUBLIC_BILLING === 'store' && RC_KEY ? 'store' : 'web';
+const storeReady = BILLING === 'store' && Platform.OS !== 'web' && RC_KEY.length > 0;
+/** Ссылка на страницу оплаты RevenueCat (Funnels → Purchase Links), к ней добавляется номер ученика */
+const WEB_PURCHASE_URL = (process.env.EXPO_PUBLIC_WEB_PURCHASE_URL || '').replace(/\/+$/, '');
+/** Пакеты RevenueCat по умолчанию для месяца и года */
+const WEB_PACKAGE: Record<'annual' | 'monthly', string> = { annual: '$rc_annual', monthly: '$rc_monthly' };
 
 export type PlanId = 'annual' | 'monthly';
 export type Plan = {
@@ -42,7 +51,11 @@ const FALLBACK: Plan[] = [
   { id: 'monthly', price: '$4.99', perMonth: null, trial: '7 дней', pkg: null },
 ];
 
-export type PurchaseResult = 'ok' | 'cancelled' | 'unavailable' | 'error';
+/**
+ * ok — Премиум включён; pending — открыта страница оплаты в браузере;
+ * need-login — для оплаты на сайте нужно войти по почте, иначе подписку не к кому привязать
+ */
+export type PurchaseResult = 'ok' | 'pending' | 'need-login' | 'cancelled' | 'unavailable' | 'error';
 
 type Saved = {
   /** Последний известный статус подписки, чтобы без интернета не закрывать уроки */
@@ -60,6 +73,7 @@ type Ctx = {
   plans: Plan[];
   /** Магазин подключён: можно оплатить по-настоящему */
   storeReady: boolean;
+  billing: 'store' | 'web';
   purchase: (id: PlanId) => Promise<PurchaseResult>;
   restore: () => Promise<boolean>;
   tutorLeft: number;
@@ -175,12 +189,49 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     })();
   }, [user, write]);
 
-  const testOverride = TEST_MODE || E2E;
+  // Оплата на сайте: подписку знает RevenueCat, а приложение спрашивает у нашего сервера по номеру аккаунта
+  const refreshWeb = useCallback(async () => {
+    if (BILLING !== 'web' || !serverReady || !user) return latest.current.active;
+    try {
+      const response = await fetch(`${SERVER_URL}/premium`, { headers: await serverHeaders() });
+      if (!response.ok) return latest.current.active;
+      const data = (await response.json()) as { premium?: boolean; checked?: boolean };
+      // Если сервер ещё не умеет проверять (нет ключа RevenueCat), прошлый статус не трогаем
+      if (data.checked) write({ ...latest.current, active: data.premium === true });
+      return data.premium === true;
+    } catch {
+      return latest.current.active;
+    }
+  }, [user, write]);
+
+  const hadUser = useRef(false);
+  useEffect(() => {
+    if (BILLING !== 'web') return;
+    if (user) setRcUser(user.id);
+    // Вышел из аккаунта: подписка осталась в аккаунте, на телефоне Премиум выключаем
+    else if (hadUser.current) write({ ...latest.current, active: false });
+    hadUser.current = !!user;
+    refreshWeb();
+    // Вернулся из браузера после оплаты — сразу проверяем
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshWeb();
+    });
+    return () => sub.remove();
+  }, [user, refreshWeb, write]);
+
+  const testOverride = TEST_MODE || (E2E && !testWindow?.__realBilling);
   const isPremium = testOverride ? saved.testPremium : saved.active;
 
   const purchase = useCallback(
     async (id: PlanId): Promise<PurchaseResult> => {
       const plan = plans.find((p) => p.id === id);
+      if (BILLING === 'web' && !testOverride) {
+        if (!WEB_PURCHASE_URL) return 'unavailable';
+        if (!user) return 'need-login';
+        // Номер аккаунта в ссылке: после оплаты Премиум сам появится у этого ученика
+        await Linking.openURL(`${WEB_PURCHASE_URL}/${encodeURIComponent(user.id)}?package_id=${encodeURIComponent(WEB_PACKAGE[id])}`);
+        return 'pending';
+      }
       if (!storeReady || !plan?.pkg) {
         // В режиме проверки покупка изображается, чтобы посмотреть, что откроется
         if (testOverride) {
@@ -198,11 +249,13 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
         return (error as { userCancelled?: boolean })?.userCancelled ? 'cancelled' : 'error';
       }
     },
-    [plans, testOverride, write],
+    [plans, testOverride, write, user],
   );
 
   const restore = useCallback(async () => {
-    if (!storeReady) return testOverride ? latest.current.testPremium : false;
+    if (testOverride) return latest.current.testPremium;
+    if (BILLING === 'web') return refreshWeb();
+    if (!storeReady) return false;
     try {
       const info = await Purchases.restorePurchases();
       const active = activeIn(info);
@@ -211,7 +264,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     } catch {
       return false;
     }
-  }, [testOverride, write]);
+  }, [testOverride, write, refreshWeb]);
 
   const today = dayKey(new Date());
   const usedToday = saved.tutor?.day === today ? saved.tutor.count : 0;
@@ -228,7 +281,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   const setTestPremium = useCallback((on: boolean) => write({ ...latest.current, testPremium: on }), [write]);
 
   const value = useMemo<Ctx>(
-    () => ({ isPremium, plans, storeReady, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
+    () => ({ isPremium, plans, storeReady, billing: BILLING, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
     [isPremium, plans, purchase, restore, tutorLeft, spendTutor, saved.testPremium, setTestPremium],
   );
   return <PremiumContext.Provider value={value}>{children}</PremiumContext.Provider>;

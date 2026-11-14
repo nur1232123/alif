@@ -109,7 +109,23 @@ npx.cmd expo start -c
 В Expo Go настоящей оплаты нет. В режиме проверки (`EXPO_PUBLIC_TEST_MODE=1`) в Профиле есть
 переключатель «Премиум включён», им можно посмотреть приложение глазами бесплатного ученика.
 
-**Настройка перед выпуском**
+**Оплата через сайт (пока нет Google Play): RevenueCat + Paddle**
+
+APK с сайта (`eas.json`, профиль `preview`, `EXPO_PUBLIC_BILLING=web`) принимает оплату на странице RevenueCat,
+деньги проводит Paddle. Перед оплатой ученик входит по почте: подписка привязывается к аккаунту.
+
+1. Paddle (сначала sandbox-vendors.paddle.com, потом настоящий): продукт «Алиф Премиум», цены $4.99 в месяц
+   и $29.99 в год, пробный период 7 дней. API-ключ со всеми правами вставить в RevenueCat (Paddle web config).
+   В настоящем Paddle разрешить домен `pay.rev.cat` и выключить письма о брошенной корзине.
+2. RevenueCat: импортировать цены, доступ (Entitlement) `premium`, предложение (Offering) `default`
+   с пакетами Monthly и Annual, затем Funnels → Purchase Links → ссылка `https://pay.rev.cat/...`.
+3. Ссылку вписать в `eas.json` → `build.preview.env.EXPO_PUBLIC_WEB_PURCHASE_URL` (и в `.env` для проверки в Expo).
+4. На Render добавить `REVENUECAT_SECRET` (секретный ключ `sk_...` из RevenueCat → API keys):
+   по нему сервер проверяет, кто оплатил. Секретный ключ в приложение не вписывать.
+
+Российские карты Paddle не принимает. Для России нужен российский платёжный сервис и российский ИП или самозанятость.
+
+**Настройка перед выпуском в Google Play**
 
 1. В Google Play Console и App Store Connect создайте две подписки:
    `alif_premium_monthly` ($4.99, 1 месяц) и `alif_premium_annual` ($29.99, 1 год),

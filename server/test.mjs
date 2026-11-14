@@ -170,6 +170,13 @@ try {
   assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'lifetime-user' })).status, 200, 'подарочный Премиум навсегда');
   rc = { code: 500, body: {} };
   assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'rc-down-user' })).status, 429, 'RevenueCat недоступен: как бесплатный');
+  // Проверка Премиума для оплаты на сайте
+  const premium = (user) => fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok', 'x-device-id': 'device-prem-0000001', 'x-rc-user': user } });
+  rc = { code: 200, body: { subscriber: { entitlements: { premium: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } } } } };
+  assert.deepEqual(await (await premium('web-buyer')).json(), { premium: true, checked: true }, 'оплатил на сайте');
+  rc = { code: 200, body: { subscriber: { entitlements: {} } } };
+  assert.deepEqual(await (await premium('web-free')).json(), { premium: false, checked: true }, 'не оплатил');
+  assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');
   // Другой телефон считается отдельно
   assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);
   const health = await (await fetch('http://127.0.0.1:9792/health')).json();

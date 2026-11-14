@@ -16,11 +16,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BILLING": "web",
+        "EXPO_PUBLIC_WEB_PURCHASE_URL": ""
       }
     },
     "production": {
       "extends": "base",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_BILLING": "store"
+      }
     }
   },
   "submit": {

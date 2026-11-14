@@ -64,14 +64,23 @@ function Routes() {
   setSfxEnabled(progress.settings.sounds);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  // Адрес вида /account?next=premium: параметры после «?» передаются экрану, как в Expo Router
+  const [pathname, query = ''] = path.split('?');
+  const params = Object.fromEntries(new URLSearchParams(query));
   // Вход по почте открыт и без имени, как в приложении
-  if (path === '/account') return <AccountScreen key={path} />;
-  if (!progress.name || path === '/welcome') return <Welcome key={path} />;
+  if (pathname === '/account') {
+    return (
+      <ParamsContext.Provider key={path} value={params}>
+        <AccountScreen />
+      </ParamsContext.Provider>
+    );
+  }
+  if (!progress.name || pathname === '/welcome') return <Welcome key={path} />;
 
-  const [, section, id] = path.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : section === 'account' ? AccountScreen : Home;
+  const [, section, id] = pathname.split('/');
+  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : Home;
   return (
-    <ParamsContext.Provider key={path} value={{ id }}>
+    <ParamsContext.Provider key={path} value={{ ...params, id }}>
       <Screen />
     </ParamsContext.Provider>
   );

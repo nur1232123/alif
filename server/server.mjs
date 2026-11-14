@@ -92,7 +92,8 @@ const premiumCache = new Map();
 async function hasPremium(userId) {
   if (!RC_SECRET || !userId || userId.length > 200) return false;
   const cached = premiumCache.get(userId);
-  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.active;
+  // «Есть Премиум» помним 10 минут, «нет» — 20 секунд: только что оплативший не должен ждать
+  if (cached && Date.now() - cached.at < (cached.active ? 10 * 60_000 : 20_000)) return cached.active;
   let active = false;
   try {
     const response = await fetch(RC_URL + encodeURIComponent(userId), {
@@ -339,7 +340,8 @@ function send(res, code, body) {
 
 const server = createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!VOICE_ENGINE, tutor: !!GEMINI_KEY });
-  if (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor')) return send(res, 404, { error: 'not found' });
+  const isPremiumCheck = req.method === 'GET' && req.url === '/premium';
+  if (!isPremiumCheck && (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor'))) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
     console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
     return send(res, 401, { error: 'bad token' });
@@ -349,6 +351,11 @@ const server = createServer(async (req, res) => {
   // Запросы принимаются только с номером телефона, который создаёт приложение
   const device = req.headers['x-device-id']?.toString() ?? '';
   if (!DEVICE_RE.test(device)) return send(res, 400, { error: 'no device' });
+  // Есть ли Премиум у вошедшего ученика: приложение спрашивает после оплаты на сайте и при запуске
+  if (isPremiumCheck) {
+    if (overDaily(`ip-premium:${ip}`, 2000)) return send(res, 429, { error: 'too many requests' });
+    return send(res, 200, { premium: await hasPremium(req.headers['x-rc-user']?.toString()), checked: !!RC_SECRET });
+  }
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
     if (overDaily(`ip-tutor:${ip}`, IP_TUTOR_PER_DAY) || overDaily(`dev-tutor:${device}`, DEVICE_TUTOR_PER_DAY)) {

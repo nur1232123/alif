@@ -10,6 +10,8 @@ import { useColors } from '@/ui/theme';
 const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://github.com/nur1232123/alif/blob/main/PRIVACY.md';
 const STORE_NAME = Platform.OS === 'ios' ? 'Apple ID' : 'Google Play';
+// Оплата на сайте идёт через Paddle: он присылает чек и ссылку для отмены подписки на почту
+const WEB_PAYER = 'Paddle';
 
 const paidWeeks = STAGES.filter((s) => s.id > FREE_STAGES).reduce((sum, s) => sum + s.weeks.length, 0);
 
@@ -17,7 +19,10 @@ const paidWeeks = STAGES.filter((s) => s.id > FREE_STAGES).reduce((sum, s) => su
 export default function PremiumScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { isPremium, plans, purchase, restore } = usePremium();
+  const { isPremium, plans, purchase, restore, billing } = usePremium();
+  const web = billing === 'web';
+  // Страница оплаты открыта в браузере: ждём, пока ученик вернётся
+  const [waiting, setWaiting] = useState(false);
   const [chosen, setChosen] = useState<PlanId>('annual');
   const [busy, setBusy] = useState<'buy' | 'restore' | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -31,7 +36,9 @@ export default function PremiumScreen() {
     const result = await purchase(plan.id);
     setBusy(null);
     if (result === 'ok') close();
-    else if (result === 'unavailable') setNote('Оплата заработает в версии приложения из Google Play и App Store.');
+    else if (result === 'need-login') router.push('/account?next=premium');
+    else if (result === 'pending') setWaiting(true);
+    else if (result === 'unavailable') setNote('Оплата пока не подключена. Скоро здесь можно будет оформить подписку.');
     else if (result === 'error') setNote('Не получилось оформить подписку. Деньги не списаны. Попробуйте ещё раз.');
   };
 
@@ -41,7 +48,7 @@ export default function PremiumScreen() {
     const ok = await restore();
     setBusy(null);
     if (ok) close();
-    else setNote('Активная подписка не найдена.');
+    else setNote(web ? 'Оплата пока не найдена. Если вы только что оплатили, подождите минуту и проверьте снова.' : 'Активная подписка не найдена.');
   };
 
   const benefits = [
@@ -71,10 +78,20 @@ export default function PremiumScreen() {
           </T>
         </View>
 
+        {waiting && !isPremium ? (
+          <View style={{ gap: 6, padding: 14, borderRadius: 16, backgroundColor: c.soft }} testID="premium-waiting">
+            <T weight="bold">Страница оплаты открыта в браузере</T>
+            <T size={14} tone="muted" style={{ lineHeight: 20 }}>
+              После оплаты вернитесь в приложение, Премиум включится сам. Если не включился, нажмите «Проверить оплату».
+            </T>
+          </View>
+        ) : null}
         {isPremium ? (
           <View style={{ padding: 16, borderRadius: 18, backgroundColor: c.goodSoft, gap: 4 }} testID="premium-active">
             <T weight="bold" tone="good">Премиум уже активен</T>
-            <T size={14} tone="muted">Все этапы и ИИ-учитель открыты. Управлять подпиской можно в {STORE_NAME}.</T>
+            <T size={14} tone="muted">
+              Все этапы и ИИ-учитель открыты. {web ? 'Отменить подписку можно по ссылке в письме от Paddle.' : `Управлять подпиской можно в ${STORE_NAME}.`}
+            </T>
           </View>
         ) : null}
 
@@ -138,8 +155,10 @@ export default function PremiumScreen() {
 
         <T size={12} tone="muted" style={{ lineHeight: 18 }}>
           {plan.trial ? `Первые ${plan.trial} бесплатно, затем ${after}. ` : ''}
-          Подписка продлевается автоматически, если не отменить её минимум за 24 часа до конца периода. Оплата списывается с
-          аккаунта {STORE_NAME}. Отменить подписку можно в любой момент в настройках {STORE_NAME}.
+          Подписка продлевается автоматически, если не отменить её минимум за 24 часа до конца периода.{' '}
+          {web
+            ? `Оплата картой через ${WEB_PAYER}, он пришлёт чек на почту. Отменить подписку можно в любой момент по ссылке в этом письме.`
+            : `Оплата списывается с аккаунта ${STORE_NAME}. Отменить подписку можно в любой момент в настройках ${STORE_NAME}.`}
         </T>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
           <Pressable accessibilityRole="link" onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
@@ -156,7 +175,7 @@ export default function PremiumScreen() {
           <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', gap: 6 }}>
             {busy === 'buy' ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label={cta} onPress={buy} disabled={busy !== null} testID="buy" />}
             <Pressable accessibilityRole="button" onPress={onRestore} disabled={busy !== null} style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }} testID="restore">
-              <T size={14} tone="muted">{busy === 'restore' ? 'Проверяю…' : 'Восстановить покупки'}</T>
+              <T size={14} tone="muted">{busy === 'restore' ? 'Проверяю…' : web ? 'Проверить оплату' : 'Восстановить покупки'}</T>
             </Pressable>
           </View>
         </View>

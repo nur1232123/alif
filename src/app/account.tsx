@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,9 @@ export default function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { user, synced, sendCode, verifyCode, signOut, deleteAccount } = useAccount();
   const { progress, replaceProgress } = useProgress();
+  // Пришли с экрана подписки: после входа возвращаемся к оплате
+  const { next } = useLocalSearchParams<{ next?: string }>();
+  const toPremium = next === 'premium';
   const [step, setStep] = useState<'email' | 'code' | 'done'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -136,7 +139,11 @@ export default function AccountScreen() {
         <T tone="muted" style={{ textAlign: 'center', lineHeight: 22 }}>
           {progress.name ? `Прогресс сохранён, ${progress.name}. Теперь он не потеряется.` : 'Вы вошли. Осталось написать, как вас зовут.'}
         </T>
-        <Button label="Продолжить" onPress={() => router.replace(progress.name ? '/' : '/welcome')} testID="account-continue" />
+        <Button
+          label={toPremium ? 'К оплате' : 'Продолжить'}
+          onPress={() => router.replace(toPremium && progress.name ? '/premium' : progress.name ? '/' : '/welcome')}
+          testID="account-continue"
+        />
       </View>
     );
   } else if (step === 'email') {
@@ -210,7 +217,9 @@ export default function AccountScreen() {
           <T size={26} weight="bold" style={{ lineHeight: 32 }}>{user && step !== 'done' ? 'Аккаунт' : 'Сохранить прогресс'}</T>
           {!user ? (
             <T tone="muted" style={{ lineHeight: 22 }}>
-              Войдите по почте, и прогресс с подпиской не потеряются при переустановке. Можно продолжить и на другом телефоне.
+              {toPremium
+                ? 'Сначала войдите по почте: подписка привяжется к ней и не потеряется, даже если сменить телефон.'
+                : 'Войдите по почте, и прогресс с подпиской не потеряются при переустановке. Можно продолжить и на другом телефоне.'}
             </T>
           ) : null}
         </View>
