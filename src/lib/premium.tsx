@@ -63,6 +63,8 @@ type Saved = {
   tutor: { day: string; count: number } | null;
   /** Режим проверки: включён ли Премиум */
   testPremium: boolean;
+  /** Страница управления подпиской при оплате на сайте (отменить, сменить карту) */
+  manageUrl?: string | null;
 };
 
 const KEY = 'alif.premium.v1';
@@ -74,6 +76,8 @@ type Ctx = {
   /** Магазин подключён: можно оплатить по-настоящему */
   storeReady: boolean;
   billing: 'store' | 'web';
+  /** Где управлять подпиской, оплаченной на сайте */
+  manageUrl: string | null;
   purchase: (id: PlanId) => Promise<PurchaseResult>;
   restore: () => Promise<boolean>;
   tutorLeft: number;
@@ -195,9 +199,9 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`${SERVER_URL}/premium`, { headers: await serverHeaders() });
       if (!response.ok) return latest.current.active;
-      const data = (await response.json()) as { premium?: boolean; checked?: boolean };
+      const data = (await response.json()) as { premium?: boolean; checked?: boolean; manageUrl?: string | null };
       // Если сервер ещё не умеет проверять (нет ключа RevenueCat), прошлый статус не трогаем
-      if (data.checked) write({ ...latest.current, active: data.premium === true });
+      if (data.checked) write({ ...latest.current, active: data.premium === true, manageUrl: data.manageUrl ?? null });
       return data.premium === true;
     } catch {
       return latest.current.active;
@@ -283,8 +287,8 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   const setTestPremium = useCallback((on: boolean) => write({ ...latest.current, testPremium: on }), [write]);
 
   const value = useMemo<Ctx>(
-    () => ({ isPremium, plans, storeReady, billing: BILLING, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
-    [isPremium, plans, purchase, restore, tutorLeft, spendTutor, saved.testPremium, setTestPremium],
+    () => ({ isPremium, plans, storeReady, billing: BILLING, manageUrl: saved.manageUrl ?? null, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
+    [isPremium, plans, saved.manageUrl, purchase, restore, tutorLeft, spendTutor, saved.testPremium, setTestPremium],
   );
   return <PremiumContext.Provider value={value}>{children}</PremiumContext.Provider>;
 }

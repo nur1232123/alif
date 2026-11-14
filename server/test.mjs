@@ -172,10 +172,10 @@ try {
   assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'rc-down-user' })).status, 429, 'RevenueCat недоступен: как бесплатный');
   // Проверка Премиума для оплаты на сайте
   const premium = (user) => fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok', 'x-device-id': 'device-prem-0000001', 'x-rc-user': user } });
-  rc = { code: 200, body: { subscriber: { entitlements: { premium: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } } } } };
-  assert.deepEqual(await (await premium('web-buyer')).json(), { premium: true, checked: true }, 'оплатил на сайте');
-  rc = { code: 200, body: { subscriber: { entitlements: {} } } };
-  assert.deepEqual(await (await premium('web-free')).json(), { premium: false, checked: true }, 'не оплатил');
+  rc = { code: 200, body: { subscriber: { management_url: 'https://pay.rev.cat/manage/abc', entitlements: { premium: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } } } } };
+  assert.deepEqual(await (await premium('web-buyer')).json(), { premium: true, manageUrl: 'https://pay.rev.cat/manage/abc', checked: true }, 'оплатил на сайте');
+  rc = { code: 200, body: { subscriber: { management_url: 'javascript:alert(1)', entitlements: {} } } };
+  assert.deepEqual(await (await premium('web-free')).json(), { premium: false, manageUrl: null, checked: true }, 'не оплатил, странная ссылка отброшена');
   assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');
   // Другой телефон считается отдельно
   assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);

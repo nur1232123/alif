@@ -89,12 +89,14 @@ const DEVICE_RE = /^[A-Za-z0-9-]{16,64}$/;
 
 // Ответ RevenueCat кэшируется на 10 минут, чтобы не спрашивать на каждый вопрос
 const premiumCache = new Map();
-async function hasPremium(userId) {
-  if (!RC_SECRET || !userId || userId.length > 200) return false;
+/** Подписка ученика в RevenueCat: есть ли Премиум и где ею управлять (отменить, сменить карту) */
+async function premiumInfo(userId) {
+  if (!RC_SECRET || !userId || userId.length > 200) return { active: false, manageUrl: null };
   const cached = premiumCache.get(userId);
   // «Есть Премиум» помним 10 минут, «нет» — 20 секунд: только что оплативший не должен ждать
-  if (cached && Date.now() - cached.at < (cached.active ? 10 * 60_000 : 20_000)) return cached.active;
+  if (cached && Date.now() - cached.at < (cached.active ? 10 * 60_000 : 20_000)) return cached;
   let active = false;
+  let manageUrl = null;
   try {
     const response = await fetch(RC_URL + encodeURIComponent(userId), {
       headers: { Authorization: `Bearer ${RC_SECRET}` },
@@ -104,13 +106,18 @@ async function hasPremium(userId) {
       const data = await response.json();
       const ent = data?.subscriber?.entitlements?.[ENTITLEMENT];
       active = !!ent && (ent.expires_date === null || Date.parse(ent.expires_date) > Date.now());
+      const url = data?.subscriber?.management_url;
+      manageUrl = typeof url === 'string' && url.startsWith('https://') ? url : null;
     }
   } catch (error) {
     console.error(`RevenueCat: ${error.message}`);
   }
-  premiumCache.set(userId, { active, at: Date.now() });
-  return active;
+  const info = { active, manageUrl, at: Date.now() };
+  premiumCache.set(userId, info);
+  return info;
 }
+
+const hasPremium = async (userId) => (await premiumInfo(userId)).active;
 
 /** Адрес ученика: за прокси облака настоящий адрес приходит в заголовке */
 function clientIp(req) {
@@ -354,7 +361,8 @@ const server = createServer(async (req, res) => {
   // Есть ли Премиум у вошедшего ученика: приложение спрашивает после оплаты на сайте и при запуске
   if (isPremiumCheck) {
     if (overDaily(`ip-premium:${ip}`, 2000)) return send(res, 429, { error: 'too many requests' });
-    return send(res, 200, { premium: await hasPremium(req.headers['x-rc-user']?.toString()), checked: !!RC_SECRET });
+    const info = await premiumInfo(req.headers['x-rc-user']?.toString());
+    return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, checked: !!RC_SECRET });
   }
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });

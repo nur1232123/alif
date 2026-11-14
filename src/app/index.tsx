@@ -642,8 +642,14 @@ function AccountBlock() {
 /** Подписка в профиле */
 function PremiumBlock() {
   const c = useColors();
-  const { isPremium, testPremium, setTestPremium } = usePremium();
-  const manage = Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions';
+  const { isPremium, testPremium, setTestPremium, billing, manageUrl } = usePremium();
+  // Оплата на сайте — страница Paddle из RevenueCat; оплата в магазине — подписки Google Play или App Store
+  const manage =
+    billing === 'web'
+      ? manageUrl
+      : Platform.OS === 'ios'
+        ? 'https://apps.apple.com/account/subscriptions'
+        : 'https://play.google.com/store/account/subscriptions';
   return (
     <View style={{ gap: 10, padding: 16, borderRadius: 20, borderWidth: isPremium ? 1.5 : 1, borderColor: isPremium ? c.gold : c.line, backgroundColor: c.surface, boxShadow: c.shadow }} testID="premium-block">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -656,7 +662,11 @@ function PremiumBlock() {
         </View>
       </View>
       {isPremium ? (
-        Platform.OS !== 'web' ? <Button label="Управлять подпиской" kind="quiet" onPress={() => Linking.openURL(manage)} testID="manage-premium" /> : null
+        manage ? (
+          <Button label="Управлять подпиской" kind="quiet" onPress={() => Linking.openURL(manage)} testID="manage-premium" />
+        ) : billing === 'web' ? (
+          <T size={13} tone="muted">Отменить подписку или сменить карту можно по ссылке в письме от Paddle.</T>
+        ) : null
       ) : (
         <Button label="Попробовать Премиум" onPress={() => router.push('/premium')} testID="open-premium" />
       )}
