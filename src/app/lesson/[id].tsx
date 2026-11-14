@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStage } from '@/data/course';
 import { buildLesson, buildPractice, getLesson, isGraded, passMark, type BuildTask, type ChoiceTask, type IntroTask, type LessonRef, type MatchTask, type ReadTask, type SpeakTask, type Task, type TipTask } from '@/lib/plan';
+import { accountEnabled, useAccount } from '@/lib/account';
 import { buildNumbersLevel, NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId, parseNumbersLevel, type NumbersLevel } from '@/lib/numbers';
 import { isPaidWeek, usePremium } from '@/lib/premium';
 import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
@@ -127,8 +128,11 @@ function NumbersFinished({ level, score, total, onRetry }: { level: NumbersLevel
 function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRef | null; score: number; total: number; mistakes: number; result: FinishResult | null }) {
   const c = useColors();
   const { progress, liveStreak, currentLessonId, lessonState } = useProgress();
+  const { user } = useAccount();
   const name = progress.name ?? '';
   const accuracy = total ? Math.round((score / total) * 100) : 100;
+  // После третьего урока предлагаем сохранить прогресс, если ученик ещё не вошёл
+  const askSave = accountEnabled && !user && Object.keys(progress.done).length >= 3;
 
   if (!lesson) {
     return (
@@ -200,6 +204,17 @@ function Finished({ lesson, score, total, mistakes, result }: { lesson: LessonRe
           <Stat value={`${accuracy}%`} label={mistakes ? `ошибок: ${mistakes}` : 'без ошибок'} />
           <Stat value={`🔥 ${liveStreak}`} label="дней подряд" />
         </View>
+        {askSave ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/account')}
+            testID="save-progress"
+            style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, backgroundColor: c.soft }}
+          >
+            <T style={{ flex: 1, lineHeight: 21 }} size={14}>Сохраните прогресс по почте, чтобы не потерять его при смене телефона</T>
+            <T weight="bold" tone="accent">›</T>
+          </Pressable>
+        ) : null}
       </View>
     </Screen>
   );

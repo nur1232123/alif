@@ -1,62 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ALL_WEEKS } from '@/data/course';
-import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK } from './plan';
+import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_WEEK } from './plan';
+import { dayKey, EMPTY, normalizeProgress, SRS_DAYS, type Progress, type Settings } from './progress-model';
 import { TEST_MODE } from './server';
 
 const KEY = 'alif.progress.v5';
 
-export type Progress = {
-  name: string | null;
-  /** Пройденные уроки */
-  done: Record<string, { score: number; total: number }>;
-  /** Этапы со звездой */
-  stars: number[];
-  /** Сколько новых уроков пройдено за день (день в формате YYYY-MM-DD) */
-  today: { day: string; count: number } | null;
-  /** День последнего занятия и серия дней подряд */
-  lastActive: string | null;
-  streak: number;
-  /** Сколько раз ученик ошибся в элементе */
-  mistakes: Record<string, number>;
-  /** Умное повторение: ступень и день следующего повтора для каждого элемента */
-  srs: Record<string, { box: number; due: string }>;
-  settings: Settings;
-  /** Только для веб-версии: все уроки открыты для просмотра */
-  unlocked?: boolean;
-  /** Мини-курс «Учим цифры»: лучший результат по уровням, доля от 0 до 1 */
-  numbers?: Record<string, number>;
-};
-
-export type Settings = {
-  sounds: boolean;
-  reminder: boolean;
-  reminderHour: number;
-  dailyGoal: number;
-  /** Режим проверки (только при TEST_MODE): любой урок можно открыть сразу */
-  allOpen: boolean;
-};
-
-/** Через сколько дней повторять элемент на каждой ступени */
-export const SRS_DAYS = [0, 1, 3, 7, 16, 35];
-
-export const EMPTY: Progress = {
-  name: null,
-  done: {},
-  stars: [],
-  today: null,
-  lastActive: null,
-  streak: 0,
-  mistakes: {},
-  srs: {},
-  settings: { sounds: true, reminder: false, reminderHour: 19, dailyGoal: LESSONS_PER_DAY, allOpen: true },
-};
-
-export function dayKey(date: Date) {
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${m}-${d}`;
-}
+export { dayKey, EMPTY, mergeProgress, normalizeProgress, SRS_DAYS } from './progress-model';
+export type { Progress, Settings } from './progress-model';
 
 const today = () => dayKey(new Date());
 
@@ -115,8 +67,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(KEY)
       .then((raw) => {
         if (raw) {
-          const saved = JSON.parse(raw);
-          latest.current = { ...EMPTY, ...saved, settings: { ...EMPTY.settings, ...saved.settings } };
+          latest.current = normalizeProgress(JSON.parse(raw));
           setProgress(latest.current);
         }
       })

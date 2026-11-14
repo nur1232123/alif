@@ -1,6 +1,7 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { accountEnabled } from '@/lib/account';
 import { useProgress } from '@/lib/progress';
 import { Ar, Button, Khatam, Screen, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -63,8 +64,13 @@ export default function Welcome() {
             />
             <Button label="Начать" onPress={submit} disabled={!clean} testID="name-submit" />
             <T size={13} tone="muted" style={{ textAlign: 'center' }}>
-              Регистрация не нужна. Имя и успехи хранятся только на этом телефоне.
+              Регистрация не нужна. {accountEnabled ? 'Сохранить прогресс по почте можно потом в профиле.' : 'Имя и успехи хранятся только на этом телефоне.'}
             </T>
+            {accountEnabled ? (
+              <Pressable accessibilityRole="button" onPress={() => router.push('/account')} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }} testID="welcome-login">
+                <T size={15} weight="bold" tone="accent">Уже занимались? Войти по почте</T>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Screen>

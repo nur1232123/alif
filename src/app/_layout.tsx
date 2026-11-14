@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
@@ -41,6 +42,8 @@ function Routes() {
         <Stack.Screen name="premium" options={{ animation: 'slide_from_bottom' }} />
       </Stack.Protected>
       <Stack.Screen name="welcome" />
+      {/* Вход по почте открыт и до ввода имени: так ученик возвращает прогресс после переустановки */}
+      <Stack.Screen name="account" options={{ animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }
@@ -66,10 +69,12 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ProgressProvider>
-        <PremiumProvider>
-          <StatusBar style="auto" />
-          <Routes />
-        </PremiumProvider>
+        <AccountProvider>
+          <PremiumProvider>
+            <StatusBar style="auto" />
+            <Routes />
+          </PremiumProvider>
+        </AccountProvider>
       </ProgressProvider>
     </SafeAreaProvider>
   );

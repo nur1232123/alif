@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { TextInput, View } from 'react-native';
 import Home from '@/app/index';
 import LessonScreen from '@/app/lesson/[id]';
+import AccountScreen from '@/app/account';
 import PremiumScreen from '@/app/premium';
 import TutorScreen from '@/app/tutor';
 import Welcome from '@/app/welcome';
+import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
@@ -62,10 +64,12 @@ function Routes() {
   setSfxEnabled(progress.settings.sounds);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  // Вход по почте открыт и без имени, как в приложении
+  if (path === '/account') return <AccountScreen key={path} />;
   if (!progress.name || path === '/welcome') return <Welcome key={path} />;
 
   const [, section, id] = path.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : Home;
+  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : section === 'account' ? AccountScreen : Home;
   return (
     <ParamsContext.Provider key={path} value={{ id }}>
       <Screen />
@@ -75,8 +79,10 @@ function Routes() {
 
 createRoot(document.getElementById('root')!).render(
   <ProgressProvider>
-    <PremiumProvider>
-      <Routes />
-    </PremiumProvider>
+    <AccountProvider>
+      <PremiumProvider>
+        <Routes />
+      </PremiumProvider>
+    </AccountProvider>
   </ProgressProvider>,
 );

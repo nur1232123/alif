@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
 import type { Week } from '@/data/types';
+import { useAccount } from './account';
 import { dayKey } from './progress';
 import { E2E, setRcUser, TEST_MODE } from './server';
 
@@ -152,6 +153,27 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       } catch {}
     };
   }, [write]);
+
+  // Подписка привязывается к аккаунту: после переустановки или на новом телефоне Премиум вернётся при входе
+  const { user } = useAccount();
+  useEffect(() => {
+    if (!storeReady) return;
+    (async () => {
+      try {
+        if (user) {
+          const { customerInfo } = await Purchases.logIn(user.id);
+          write({ ...latest.current, active: activeIn(customerInfo) });
+          setRcUser(user.id);
+        } else if (!(await Purchases.isAnonymous())) {
+          const info = await Purchases.logOut();
+          write({ ...latest.current, active: activeIn(info) });
+          setRcUser(await Purchases.getAppUserID());
+        }
+      } catch {
+        // Нет связи с магазином: попробуем при следующем запуске
+      }
+    })();
+  }, [user, write]);
 
   const testOverride = TEST_MODE || E2E;
   const isPremium = testOverride ? saved.testPremium : saved.active;

@@ -49,6 +49,8 @@ const result = await build({
     'process.env.EXPO_PUBLIC_SERVER_URL': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_RC_IOS_KEY': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_TESTER_KEY': JSON.stringify(''),
+    'process.env.EXPO_PUBLIC_SUPABASE_URL': JSON.stringify(''),
+    'process.env.EXPO_PUBLIC_SUPABASE_KEY': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_RC_ANDROID_KEY': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_TERMS_URL': JSON.stringify(''),
     'process.env.EXPO_PUBLIC_PRIVACY_URL': JSON.stringify(''),

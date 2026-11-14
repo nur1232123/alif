@@ -9,6 +9,7 @@ import type { Item, Week } from '@/data/types';
 import { dueItems, getLesson, introChunks, knownItems, lessonId, LESSONS_PER_DAY, LESSONS_PER_WEEK, passMark, TOTAL_LESSONS } from '@/lib/plan';
 import { dayKey, useProgress, type LessonState } from '@/lib/progress';
 import { cancelReminder, remindersSupported, scheduleReminder } from '@/lib/reminders';
+import { accountEnabled, useAccount } from '@/lib/account';
 import { NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId } from '@/lib/numbers';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
@@ -614,6 +615,30 @@ function SettingsBlock() {
   );
 }
 
+/** Аккаунт в профиле: сохранён ли прогресс в облаке */
+function AccountBlock() {
+  const c = useColors();
+  const { user, synced } = useAccount();
+  if (!accountEnabled) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push('/account')}
+      testID="account-block"
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: user ? c.line : c.gold, backgroundColor: c.surface, boxShadow: c.shadow, opacity: pressed ? 0.85 : 1 })}
+    >
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: user ? c.goodSoft : c.goldSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <T size={18} weight="bold" tone={user ? 'good' : 'gold'}>{user ? '✓' : '!'}</T>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T weight="bold">{user ? 'Прогресс сохранён' : 'Прогресс только на этом телефоне'}</T>
+        <T size={13} tone="muted" lines={1}>{user ? `${user.email}${synced === 'error' ? ' · не удалось сохранить' : ''}` : 'Войдите по почте, чтобы не потерять его'}</T>
+      </View>
+      <T size={20} tone="muted">›</T>
+    </Pressable>
+  );
+}
+
 /** Подписка в профиле */
 function PremiumBlock() {
   const c = useColors();
@@ -668,6 +693,7 @@ function ProfileTab() {
         <Stat value={`${week} / ${ALL_WEEKS.length}`} label="неделя курса" />
         <Stat value={String(words)} label="знакомых элементов" />
       </View>
+      <AccountBlock />
       <PremiumBlock />
       <SettingsBlock />
       <Button label="Изменить имя" kind="quiet" onPress={() => router.push('/welcome')} testID="change-name" />
