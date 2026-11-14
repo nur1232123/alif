@@ -219,8 +219,10 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [user, refreshWeb, write]);
 
-  const testOverride = TEST_MODE || (E2E && !testWindow?.__realBilling);
-  const isPremium = testOverride ? saved.testPremium : saved.active;
+  // Автотесты изображают покупку. У автора (режим проверки) переключатель «Премиум включён» даёт Премиум сразу,
+  // а при выключенном работает настоящая оплата, как у ученика: так можно проверить её тестовой картой
+  const testOverride = E2E && !testWindow?.__realBilling;
+  const isPremium = testOverride ? saved.testPremium : (TEST_MODE && saved.testPremium) || saved.active;
 
   const purchase = useCallback(
     async (id: PlanId): Promise<PurchaseResult> => {

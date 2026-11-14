@@ -19,7 +19,7 @@
       },
       "env": {
         "EXPO_PUBLIC_BILLING": "web",
-        "EXPO_PUBLIC_WEB_PURCHASE_URL": ""
+        "EXPO_PUBLIC_WEB_PURCHASE_URL": "https://pay.rev.cat/tiarftyguryteycd"
       }
     },
     "production": {
