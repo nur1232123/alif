@@ -8,6 +8,8 @@ import { Button, Khatam, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 
 const RESEND_SECONDS = 60;
+/** Длина кода из письма: так настроено в Supabase */
+const CODE_LENGTH = 8;
 
 const SEND_ERRORS = {
   'bad-email': 'Проверьте адрес почты.',
@@ -59,10 +61,11 @@ export default function AccountScreen() {
     } else setError(SEND_ERRORS[result]);
   };
 
-  const enter = async () => {
+  const enter = async (value = code) => {
+    if (busy) return;
     setBusy(true);
     setError(null);
-    const result = await verifyCode(email, code);
+    const result = await verifyCode(email, value);
     setBusy(false);
     if (result === 'ok') setStep('done');
     else setError(VERIFY_ERRORS[result]);
@@ -169,17 +172,22 @@ export default function AccountScreen() {
           accessibilityLabel="Код из письма"
           autoComplete="one-time-code"
           keyboardType="number-pad"
-          maxLength={10}
-          onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
-          onSubmitEditing={enter}
-          placeholder="——————"
+          maxLength={CODE_LENGTH}
+          onChangeText={(v) => {
+            const digits = v.replace(/\D/g, '').slice(0, CODE_LENGTH);
+            setCode(digits);
+            // Набрал все цифры: входим сразу, без кнопки
+            if (digits.length === CODE_LENGTH) enter(digits);
+          }}
+          onSubmitEditing={() => enter()}
+          placeholder={'—'.repeat(CODE_LENGTH)}
           placeholderTextColor={c.muted}
           textContentType="oneTimeCode"
           value={code}
           testID="code-input"
           style={[input, { fontSize: 24, letterSpacing: 6, textAlign: 'center' }]}
         />
-        {busy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Войти" onPress={enter} disabled={code.length < 6} testID="verify-code" />}
+        {busy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Войти" onPress={() => enter()} disabled={code.length < CODE_LENGTH} testID="verify-code" />}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <Pressable accessibilityRole="button" onPress={() => { setStep('email'); setError(null); }} hitSlop={8} testID="change-email">
             <T size={14} tone="accent">Другая почта</T>

@@ -73,7 +73,7 @@ const supabaseBackend = (): Backend | null => {
   };
 };
 
-// В автотестах облако подменяется: код всегда 123456. Облако и вход лежат в отдельных ключах браузера,
+// В автотестах облако подменяется: код всегда 12345678. Облако и вход лежат в отдельных ключах браузера,
 // поэтому «переустановка» (удаление ключей alif.*) их не стирает, как и настоящее облако
 const fakeBackend = (): Backend => {
   const read = <T,>(key: string, fallback: T): T => {
@@ -99,7 +99,7 @@ const fakeBackend = (): Backend => {
       return EMAIL_RE.test(email) ? 'sent' : 'bad-email';
     },
     async verify(email, code) {
-      if (code !== '123456') return 'bad-code';
+      if (code !== '12345678') return 'bad-code';
       write('e2e.session', { id: idOf(email), email });
       return 'ok';
     },
