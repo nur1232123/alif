@@ -44,5 +44,12 @@ export async function serverHeaders(): Promise<Record<string, string>> {
 }
 
 /** В автотесте ответы сервера подставляются из страницы */
-export type TestWindow = { __voice?: unknown; __tutor?: string | null; /** Автотест настоящей оплаты: без изображения покупки */ __realBilling?: boolean };
+export type TestWindow = {
+  __voice?: unknown;
+  __tutor?: string | null;
+  /** Автотест настоящей оплаты: без изображения покупки */
+  __realBilling?: boolean;
+  /** Автотест экрана подписки: ответ сервера про подписку */
+  __premiumInfo?: { manageUrl: string | null; details: unknown };
+};
 export const testWindow = (globalThis as unknown as { window?: TestWindow }).window;

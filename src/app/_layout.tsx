@@ -40,6 +40,7 @@ function Routes() {
         <Stack.Screen name="lesson/[id]" />
         <Stack.Screen name="tutor" />
         <Stack.Screen name="premium" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="subscription" />
       </Stack.Protected>
       <Stack.Screen name="welcome" />
       {/* Вход по почте открыт и до ввода имени: так ученик возвращает прогресс после переустановки */}

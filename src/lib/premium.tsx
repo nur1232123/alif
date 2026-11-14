@@ -57,6 +57,21 @@ const FALLBACK: Plan[] = [
  */
 export type PurchaseResult = 'ok' | 'pending' | 'need-login' | 'cancelled' | 'unavailable' | 'error';
 
+/** Подробности подписки для экрана «Моя подписка» */
+export type SubDetails = {
+  plan: PlanId | null;
+  /** Когда кончится пробный или оплаченный период; null — навсегда (подарок) */
+  expiresAt: string | null;
+  trial: boolean;
+  /** Продлится ли сама; false — ученик отменил */
+  willRenew: boolean;
+  /** Карта не прошла при продлении */
+  billingIssue: boolean;
+  /** Где оплачена: paddle, play_store, app_store, promotional… */
+  store: string | null;
+  price: { amount: number; currency: string } | null;
+};
+
 type Saved = {
   /** Последний известный статус подписки, чтобы без интернета не закрывать уроки */
   active: boolean;
@@ -65,6 +80,7 @@ type Saved = {
   testPremium: boolean;
   /** Страница управления подпиской при оплате на сайте (отменить, сменить карту) */
   manageUrl?: string | null;
+  details?: SubDetails | null;
 };
 
 const KEY = 'alif.premium.v1';
@@ -78,6 +94,7 @@ type Ctx = {
   billing: 'store' | 'web';
   /** Где управлять подпиской, оплаченной на сайте */
   manageUrl: string | null;
+  details: SubDetails | null;
   purchase: (id: PlanId) => Promise<PurchaseResult>;
   restore: () => Promise<boolean>;
   tutorLeft: number;
@@ -121,6 +138,26 @@ function planFrom(id: PlanId, pkg: PurchasesPackage): Plan {
 
 const activeIn = (info: CustomerInfo) => info.entitlements.active[ENTITLEMENT] !== undefined;
 
+/** Подробности подписки из магазина (Google Play, App Store) или из подписки с сайта, видимой через SDK */
+function detailsFrom(info: CustomerInfo): Pick<Saved, 'active' | 'manageUrl' | 'details'> {
+  const ent = info.entitlements.active[ENTITLEMENT];
+  if (!ent) return { active: false, manageUrl: info.managementURL, details: null };
+  const id = ent.productIdentifier.toLowerCase();
+  return {
+    active: true,
+    manageUrl: info.managementURL,
+    details: {
+      plan: /year|annual/.test(id) ? 'annual' : /month/.test(id) ? 'monthly' : null,
+      expiresAt: ent.expirationDate,
+      trial: ent.periodType === 'TRIAL',
+      willRenew: ent.willRenew,
+      billingIssue: !!ent.billingIssueDetectedAt,
+      store: String(ent.store).toLowerCase(),
+      price: null,
+    },
+  };
+}
+
 export function PremiumProvider({ children }: { children: ReactNode }) {
   const [saved, setSaved] = useState<Saved>(EMPTY);
   const [plans, setPlans] = useState<Plan[]>(FALLBACK);
@@ -145,7 +182,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!storeReady) return;
-    const onInfo = (info: CustomerInfo) => write({ ...latest.current, active: activeIn(info) });
+    const onInfo = (info: CustomerInfo) => write({ ...latest.current, ...detailsFrom(info) });
     try {
       Purchases.configure({ apiKey: RC_KEY });
       Purchases.addCustomerInfoUpdateListener(onInfo);
@@ -180,11 +217,11 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       try {
         if (user) {
           const { customerInfo } = await Purchases.logIn(user.id);
-          write({ ...latest.current, active: activeIn(customerInfo) });
+          write({ ...latest.current, ...detailsFrom(customerInfo) });
           setRcUser(user.id);
         } else if (!(await Purchases.isAnonymous())) {
           const info = await Purchases.logOut();
-          write({ ...latest.current, active: activeIn(info) });
+          write({ ...latest.current, ...detailsFrom(info) });
           setRcUser(await Purchases.getAppUserID());
         }
       } catch {
@@ -195,13 +232,19 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
 
   // Оплата на сайте: подписку знает RevenueCat, а приложение спрашивает у нашего сервера по номеру аккаунта
   const refreshWeb = useCallback(async () => {
+    // Автотест подставляет ответ сервера про подписку
+    const mock = E2E ? testWindow?.__premiumInfo : undefined;
+    if (mock) {
+      write({ ...latest.current, active: true, manageUrl: mock.manageUrl, details: mock.details as SubDetails });
+      return true;
+    }
     if (BILLING !== 'web' || !serverReady || !user) return latest.current.active;
     try {
       const response = await fetch(`${SERVER_URL}/premium`, { headers: await serverHeaders() });
       if (!response.ok) return latest.current.active;
-      const data = (await response.json()) as { premium?: boolean; checked?: boolean; manageUrl?: string | null };
+      const data = (await response.json()) as { premium?: boolean; checked?: boolean; manageUrl?: string | null; details?: SubDetails | null };
       // Если сервер ещё не умеет проверять (нет ключа RevenueCat), прошлый статус не трогаем
-      if (data.checked) write({ ...latest.current, active: data.premium === true, manageUrl: data.manageUrl ?? null });
+      if (data.checked) write({ ...latest.current, active: data.premium === true, manageUrl: data.manageUrl ?? null, details: data.details ?? null });
       return data.premium === true;
     } catch {
       return latest.current.active;
@@ -249,7 +292,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       try {
         const { customerInfo } = await Purchases.purchasePackage(plan.pkg);
         const active = activeIn(customerInfo);
-        write({ ...latest.current, active });
+        write({ ...latest.current, ...detailsFrom(customerInfo) });
         return active ? 'ok' : 'error';
       } catch (error) {
         return (error as { userCancelled?: boolean })?.userCancelled ? 'cancelled' : 'error';
@@ -265,7 +308,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     try {
       const info = await Purchases.restorePurchases();
       const active = activeIn(info);
-      write({ ...latest.current, active });
+      write({ ...latest.current, ...detailsFrom(info) });
       return active;
     } catch {
       return false;
@@ -287,8 +330,8 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   const setTestPremium = useCallback((on: boolean) => write({ ...latest.current, testPremium: on }), [write]);
 
   const value = useMemo<Ctx>(
-    () => ({ isPremium, plans, storeReady, billing: BILLING, manageUrl: saved.manageUrl ?? null, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
-    [isPremium, plans, saved.manageUrl, purchase, restore, tutorLeft, spendTutor, saved.testPremium, setTestPremium],
+    () => ({ isPremium, plans, storeReady, billing: BILLING, manageUrl: saved.manageUrl ?? null, details: saved.details ?? null, purchase, restore, tutorLeft, spendTutor, testPremium: saved.testPremium, setTestPremium }),
+    [isPremium, plans, saved.manageUrl, saved.details, purchase, restore, tutorLeft, spendTutor, saved.testPremium, setTestPremium],
   );
   return <PremiumContext.Provider value={value}>{children}</PremiumContext.Provider>;
 }

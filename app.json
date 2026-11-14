@@ -37,7 +37,8 @@
           "microphonePermission": "Микрофон нужен, чтобы проверить произношение на экзамене.",
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "scheme": "alif",
     "experiments": {

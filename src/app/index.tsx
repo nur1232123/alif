@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import { LETTERS } from '@/data/letters';
@@ -642,14 +642,7 @@ function AccountBlock() {
 /** Подписка в профиле */
 function PremiumBlock() {
   const c = useColors();
-  const { isPremium, testPremium, setTestPremium, billing, manageUrl } = usePremium();
-  // Оплата на сайте — страница Paddle из RevenueCat; оплата в магазине — подписки Google Play или App Store
-  const manage =
-    billing === 'web'
-      ? manageUrl
-      : Platform.OS === 'ios'
-        ? 'https://apps.apple.com/account/subscriptions'
-        : 'https://play.google.com/store/account/subscriptions';
+  const { isPremium, testPremium, setTestPremium } = usePremium();
   return (
     <View style={{ gap: 10, padding: 16, borderRadius: 20, borderWidth: isPremium ? 1.5 : 1, borderColor: isPremium ? c.gold : c.line, backgroundColor: c.surface, boxShadow: c.shadow }} testID="premium-block">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -662,11 +655,7 @@ function PremiumBlock() {
         </View>
       </View>
       {isPremium ? (
-        manage ? (
-          <Button label="Управлять подпиской" kind="quiet" onPress={() => Linking.openURL(manage)} testID="manage-premium" />
-        ) : billing === 'web' ? (
-          <T size={13} tone="muted">Отменить подписку или сменить карту можно по ссылке в письме от Paddle.</T>
-        ) : null
+        <Button label="Моя подписка" kind="quiet" onPress={() => router.push('/subscription')} testID="manage-premium" />
       ) : (
         <Button label="Попробовать Премиум" onPress={() => router.push('/premium')} testID="open-premium" />
       )}

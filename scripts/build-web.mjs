@@ -35,6 +35,7 @@ const result = await build({
     'expo-audio': path.join(root, 'web/shims/audio.ts'),
     'expo-file-system': path.join(root, 'web/shims/file-system.ts'),
     'react-native-purchases': path.join(root, 'web/shims/purchases.ts'),
+    'expo-web-browser': path.join(root, 'web/shims/web-browser.ts'),
     'expo-notifications': path.join(root, 'web/shims/notifications.ts'),
     '@react-native-async-storage/async-storage': path.join(root, 'web/shims/storage.ts'),
     'react-native-safe-area-context': path.join(root, 'web/shims/safe-area.tsx'),

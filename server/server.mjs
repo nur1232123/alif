@@ -89,14 +89,32 @@ const DEVICE_RE = /^[A-Za-z0-9-]{16,64}$/;
 
 // Ответ RevenueCat кэшируется на 10 минут, чтобы не спрашивать на каждый вопрос
 const premiumCache = new Map();
+/** Подробности для экрана «Моя подписка»: тариф, до какого числа, пробный ли период, продлится ли */
+function subscriptionDetails(ent, sub) {
+  const amount = sub?.price?.amount;
+  const id = String(ent.product_identifier ?? '').toLowerCase();
+  // Тариф по цене (год дороже $20) или по названию продукта
+  const plan = typeof amount === 'number' ? (amount >= 20 ? 'annual' : 'monthly') : /year|annual|год/.test(id) ? 'annual' : /month|мес/.test(id) ? 'monthly' : null;
+  return {
+    plan,
+    expiresAt: ent.expires_date ?? null,
+    trial: sub?.period_type === 'trial',
+    willRenew: ent.expires_date !== null && !sub?.unsubscribe_detected_at,
+    billingIssue: !!sub?.billing_issues_detected_at,
+    store: sub?.store ?? null,
+    price: typeof amount === 'number' && sub?.price?.currency ? { amount, currency: sub.price.currency } : null,
+  };
+}
+
 /** Подписка ученика в RevenueCat: есть ли Премиум и где ею управлять (отменить, сменить карту) */
 async function premiumInfo(userId) {
-  if (!RC_SECRET || !userId || userId.length > 200) return { active: false, manageUrl: null };
+  if (!RC_SECRET || !userId || userId.length > 200) return { active: false, manageUrl: null, details: null };
   const cached = premiumCache.get(userId);
   // «Есть Премиум» помним 10 минут, «нет» — 20 секунд: только что оплативший не должен ждать
   if (cached && Date.now() - cached.at < (cached.active ? 10 * 60_000 : 20_000)) return cached;
   let active = false;
   let manageUrl = null;
+  let details = null;
   try {
     const response = await fetch(RC_URL + encodeURIComponent(userId), {
       headers: { Authorization: `Bearer ${RC_SECRET}` },
@@ -108,11 +126,12 @@ async function premiumInfo(userId) {
       active = !!ent && (ent.expires_date === null || Date.parse(ent.expires_date) > Date.now());
       const url = data?.subscriber?.management_url;
       manageUrl = typeof url === 'string' && url.startsWith('https://') ? url : null;
+      if (ent) details = subscriptionDetails(ent, data.subscriber.subscriptions?.[ent.product_identifier]);
     }
   } catch (error) {
     console.error(`RevenueCat: ${error.message}`);
   }
-  const info = { active, manageUrl, at: Date.now() };
+  const info = { active, manageUrl, details, at: Date.now() };
   premiumCache.set(userId, info);
   return info;
 }
@@ -362,7 +381,7 @@ const server = createServer(async (req, res) => {
   if (isPremiumCheck) {
     if (overDaily(`ip-premium:${ip}`, 2000)) return send(res, 429, { error: 'too many requests' });
     const info = await premiumInfo(req.headers['x-rc-user']?.toString());
-    return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, checked: !!RC_SECRET });
+    return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, details: info.active ? info.details : null, checked: !!RC_SECRET });
   }
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });

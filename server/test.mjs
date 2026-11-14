@@ -172,10 +172,42 @@ try {
   assert.equal((await ask(one, 'tok', { ...free, 'x-rc-user': 'rc-down-user' })).status, 429, 'RevenueCat недоступен: как бесплатный');
   // Проверка Премиума для оплаты на сайте
   const premium = (user) => fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok', 'x-device-id': 'device-prem-0000001', 'x-rc-user': user } });
-  rc = { code: 200, body: { subscriber: { management_url: 'https://pay.rev.cat/manage/abc', entitlements: { premium: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } } } } };
-  assert.deepEqual(await (await premium('web-buyer')).json(), { premium: true, manageUrl: 'https://pay.rev.cat/manage/abc', checked: true }, 'оплатил на сайте');
+  const until = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  rc = {
+    code: 200,
+    body: {
+      subscriber: {
+        management_url: 'https://pay.rev.cat/manage/abc',
+        entitlements: { premium: { expires_date: until, product_identifier: 'pri_123' } },
+        subscriptions: { pri_123: { period_type: 'trial', store: 'paddle', unsubscribe_detected_at: null, billing_issues_detected_at: null, price: { amount: 29.99, currency: 'USD' } } },
+      },
+    },
+  };
+  assert.deepEqual(
+    await (await premium('web-buyer')).json(),
+    {
+      premium: true,
+      manageUrl: 'https://pay.rev.cat/manage/abc',
+      details: { plan: 'annual', expiresAt: until, trial: true, willRenew: true, billingIssue: false, store: 'paddle', price: { amount: 29.99, currency: 'USD' } },
+      checked: true,
+    },
+    'оплатил на сайте: год, пробный период',
+  );
+  rc = {
+    code: 200,
+    body: {
+      subscriber: {
+        entitlements: { premium: { expires_date: until, product_identifier: 'alif_premium_monthly' } },
+        subscriptions: { alif_premium_monthly: { period_type: 'normal', store: 'play_store', unsubscribe_detected_at: '2026-11-10T00:00:00Z', billing_issues_detected_at: '2026-11-11T00:00:00Z' } },
+      },
+    },
+  };
+  const cancelled = (await (await premium('play-cancelled')).json()).details;
+  assert.equal(cancelled.plan, 'monthly', 'тариф по названию продукта');
+  assert.equal(cancelled.willRenew, false, 'отменённая не продлится');
+  assert.equal(cancelled.billingIssue, true, 'проблема с оплатой');
   rc = { code: 200, body: { subscriber: { management_url: 'javascript:alert(1)', entitlements: {} } } };
-  assert.deepEqual(await (await premium('web-free')).json(), { premium: false, manageUrl: null, checked: true }, 'не оплатил, странная ссылка отброшена');
+  assert.deepEqual(await (await premium('web-free')).json(), { premium: false, manageUrl: null, details: null, checked: true }, 'не оплатил, странная ссылка отброшена');
   assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');
   // Другой телефон считается отдельно
   assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);

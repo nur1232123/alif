@@ -5,6 +5,7 @@ import Home from '@/app/index';
 import LessonScreen from '@/app/lesson/[id]';
 import AccountScreen from '@/app/account';
 import PremiumScreen from '@/app/premium';
+import SubscriptionScreen from '@/app/subscription';
 import TutorScreen from '@/app/tutor';
 import Welcome from '@/app/welcome';
 import { AccountProvider } from '@/lib/account';
@@ -78,7 +79,7 @@ function Routes() {
   if (!progress.name || pathname === '/welcome') return <Welcome key={path} />;
 
   const [, section, id] = pathname.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : Home;
+  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : section === 'subscription' ? SubscriptionScreen : Home;
   return (
     <ParamsContext.Provider key={path} value={{ ...params, id }}>
       <Screen />
