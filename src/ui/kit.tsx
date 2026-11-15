@@ -69,9 +69,22 @@ export function T({ children, style, tone = 'ink', weight = 'regular', size = 16
 // Поднимаем текст на эту разницу, чтобы буквы стояли по центру плиток и карточек.
 const AR_LIFT = 0.15;
 
+/**
+ * У шрифта Scheherazade длинные хвосты вниз: кясра под «ي» уходит на 0,56 кегля ниже строки.
+ * Android делит урезанную высоту строки поровну сверху и снизу, и при lineHeight меньше ~1,9 кегля
+ * низ буквы обрезается (пропадают точки и кясра). Поэтому строка всегда не ниже AR_MIN_LINE,
+ * а лишняя высота убирается отрицательными отступами: место в вёрстке остаётся прежним.
+ */
+const AR_MIN_LINE = 1.95;
+
 /** Арабский текст: большая высота строки, иначе огласовки обрезаются */
 export function Ar({ children, size = 32, style, bold }: { children: ReactNode; size?: number; style?: TextStyle; bold?: boolean }) {
   const c = useColors();
+  const flat = StyleSheet.flatten(style) ?? {};
+  const wanted = typeof flat.lineHeight === 'number' ? flat.lineHeight : Math.round(size * 1.75);
+  const line = Math.max(wanted, Math.round(size * AR_MIN_LINE));
+  const extra = (line - wanted) / 2;
+  const margin = (key: 'marginTop' | 'marginBottom') => (typeof flat[key] === 'number' ? (flat[key] as number) : typeof flat.marginVertical === 'number' ? flat.marginVertical : 0) - extra;
   return (
     <Text
       style={[
@@ -79,13 +92,13 @@ export function Ar({ children, size = 32, style, bold }: { children: ReactNode; 
           color: c.ink,
           fontFamily: bold ? fonts.arabicBold : fonts.arabic,
           fontSize: size,
-          lineHeight: Math.round(size * 1.75),
           writingDirection: 'rtl',
           textAlign: 'center',
           includeFontPadding: false,
           transform: [{ translateY: -Math.round(size * AR_LIFT) }],
         },
         style,
+        { lineHeight: line, marginTop: margin('marginTop'), marginBottom: margin('marginBottom') },
       ]}
     >
       {children}
