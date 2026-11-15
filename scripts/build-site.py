@@ -43,7 +43,7 @@ PAGE = """<!doctype html>
       <a href="privacy.html">Конфиденциальность</a>
       <a href="refund.html">Возврат денег</a>
     </nav>
-    <span class="copy">© 2026 Алиф</span>
+    <span class="copy">© 2026 Nur Urmatov</span>
   </div>
 </footer>
 </body>
@@ -53,6 +53,8 @@ PAGE = """<!doctype html>
 REFUND = """# Возврат денег
 
 Если «Алиф Премиум» вам не подошёл, мы вернём деньги полностью. Причину объяснять не нужно.
+
+Продавец приложения: Nur Urmatov (частное лицо, Иордания). Оплату на сайте принимает Paddle.com.
 
 ## Как вернуть деньги
 
@@ -78,7 +80,7 @@ REFUND = """# Возврат денег
 
 # Refund policy (English)
 
-If Alif Premium is not right for you, we will refund your payment in full within 14 days, no questions asked.
+Alif is sold by Nur Urmatov (individual, Jordan). If Alif Premium is not right for you, we will refund your payment in full within 14 days, no questions asked.
 Contact [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com) or reply to your Paddle receipt. Web payments are processed and refunded by Paddle.com,
 our Merchant of Record, usually within 5–10 business days. The 7-day free trial is not charged if cancelled
 before it ends. Purchases made in Google Play or the App Store are refunded under the store's rules.
