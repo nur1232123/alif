@@ -190,6 +190,6 @@ node scripts/test-make-audio.mjs
 - Один раз: на GitHub в репозитории Settings → Pages → Source: **GitHub Actions**.
 - Дальше сайт обновляется сам после каждого `git push`, если изменились `site/`, `TERMS.md` или `PRIVACY.md`.
 - Страницы `terms.html`, `privacy.html`, `refund.html` собираются из `TERMS.md` и `PRIVACY.md`: `python3 scripts/build-site.py`.
-- Ссылка на APK: атрибут `data-apk` у `<body>` в `site/index.html`, сейчас `https://github.com/nur1232123/alif/releases/latest/download/Alif.apk`. Новую версию выкладывайте в GitHub Releases с тем же именем файла `Alif.apk`, и ссылка сама поведёт на неё.
+- Ссылка на APK: атрибут `data-apk` у `<body>` в `site/index.html`, сейчас `https://github.com/nur1232123/alif/releases/latest/download/alif.apk`. Новую версию выкладывайте в GitHub Releases с тем же именем файла `alif.apk` (маленькими буквами), и ссылка сама поведёт на неё.
 - Почта поддержки: alif.arabic.app@gmail.com (`SUPPORT_EMAIL` в `site/index.html`, а также `TERMS.md`, `PRIVACY.md`, `scripts/build-site.py`).
 - Свой домен: купить (около $10–15 в год), в Settings → Pages → Custom domain вписать его и добавить у регистратора DNS-запись, которую покажет GitHub.
