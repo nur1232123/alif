@@ -44,6 +44,12 @@
     "experiments": {
       "typedRoutes": false
     },
-    "description": "Курс арабского языка на год: от букв до разговора."
+    "description": "Курс арабского языка на год: от букв до разговора.",
+    "owner": "alif.arabic.app",
+    "extra": {
+      "eas": {
+        "projectId": "29f8eb4d-d5a3-425e-bc02-e30179f161d8"
+      }
+    }
   }
 }
