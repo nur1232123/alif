@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <!-- Ссылка на APK: впишите её в data-apk, и кнопки «Скачать» заработают. Пока пусто — показывается «скоро». -->
-<body data-apk="">
+<body data-apk="https://github.com/nur1232123/alif/releases/latest/download/Alif.apk">
 
 <header class="top">
   <div class="wrap">
@@ -225,6 +225,17 @@
               <span>Скачать для Android</span>
             </a>
           </div>
+          <details class="howto" data-howto hidden>
+            <summary>Телефон пишет, что приложение может быть небезопасным?</summary>
+            <div>
+              <p>Так Android предупреждает о любом приложении не из Google Play. Алиф пока устанавливается файлом, поэтому:</p>
+              <ol>
+                <li>Откройте скачанный файл <b>Alif.apk</b>.</li>
+                <li>Если телефон спросит, разрешите установку из этого источника.</li>
+                <li>В окне Play Защиты нажмите «Подробнее», затем «Всё равно установить».</li>
+              </ol>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -252,11 +263,12 @@
   // Кнопки «Скачать»: пока APK нет, показываем «скоро»
   const apk = document.body.dataset.apk;
   document.querySelectorAll('[data-download]').forEach((a) => {
-    if (apk) { a.href = apk; a.setAttribute('download', ''); return; }
+    if (apk) { a.href = apk; return; }
     a.setAttribute('aria-disabled', 'true');
     a.removeAttribute('href');
     a.querySelector('span').textContent = 'Скоро для Android';
   });
+  if (apk) document.querySelector('[data-howto]').hidden = false;
   if (!apk) {
     document.querySelector('[data-download-note]').textContent = 'Приложение проходит последние проверки. Алфавит и чтение будут бесплатны, без рекламы.';
     document.querySelector('[data-get-text]').textContent = 'Android-версия выходит совсем скоро. Ссылка на скачивание появится здесь.';
