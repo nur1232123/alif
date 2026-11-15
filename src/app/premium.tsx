@@ -7,8 +7,8 @@ import { FREE_STAGES, FREE_TUTOR_PER_DAY, type PlanId, usePremium } from '@/lib/
 import { Button, Khatam, T } from '@/ui/kit';
 import { useColors } from '@/ui/theme';
 
-const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://nur1232123.github.io/alif/terms.html';
-const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://nur1232123.github.io/alif/privacy.html';
+const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://alif.best/terms.html';
+const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://alif.best/privacy.html';
 const STORE_NAME = Platform.OS === 'ios' ? 'Apple ID' : 'Google Play';
 // Оплата на сайте идёт через Paddle: он присылает чек и ссылку для отмены подписки на почту
 const WEB_PAYER = 'Paddle';

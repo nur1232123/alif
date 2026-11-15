@@ -235,6 +235,14 @@ section { padding: clamp(56px, 9vw, 104px) 0; }
 .howto > div { padding: 0 16px 16px; color: var(--muted); font-size: 16px; display: grid; gap: 8px; }
 .howto ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
 
+/* Английская часть для проверяющих и иностранных гостей */
+.en { background: var(--surface); border-top: 1px solid var(--line); }
+.en-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; }
+.en-cols > div { display: grid; gap: 10px; align-content: start; }
+.en-cols p { color: var(--muted); }
+.en-links { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 32px; font-size: 16px; }
+@media (max-width: 760px) { .en-cols { grid-template-columns: 1fr; } }
+
 /* Подвал */
 footer { padding: 36px 0 48px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }

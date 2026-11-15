@@ -185,7 +185,7 @@ node scripts/test-make-audio.mjs
 ## Сайт
 
 Папка `site/` — сайт приложения: главная, условия, конфиденциальность и возврат денег.
-Он публикуется бесплатно на GitHub Pages: https://nur1232123.github.io/alif/
+Он публикуется бесплатно на GitHub Pages по адресу https://alif.best (свой домен; старый адрес nur1232123.github.io/alif перенаправляется сам).
 
 - Один раз: на GitHub в репозитории Settings → Pages → Source: **GitHub Actions**.
 - Дальше сайт обновляется сам после каждого `git push`, если изменились `site/`, `TERMS.md` или `PRIVACY.md`.

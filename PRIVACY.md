@@ -56,3 +56,15 @@
 ## Связь
 
 Вопросы о данных: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com)
+
+---
+
+# Alif — Privacy Policy (summary in English)
+
+Without signing in, your progress stays on your phone. If you sign in with your email, we store your email
+and learning progress (Supabase) so you can restore them on another device; you can delete your account in the app.
+Voice recordings for pronunciation checks are sent to our server and the speech recognition provider (Groq) and are not kept.
+Questions to the AI tutor are processed by Google Gemini; please do not include personal data.
+Subscriptions are paid via Paddle.com on the web or via Google Play / App Store; we never see your card details.
+Paddle or the store shares purchase status with RevenueCat so the app knows whether Premium is active.
+We do not sell your data and do not show ads. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).

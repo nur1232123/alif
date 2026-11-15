@@ -8,7 +8,7 @@ import { TEST_MODE } from '@/lib/server';
 import { Button, Khatam, T } from '@/ui/kit';
 import { useColors } from '@/ui/theme';
 
-const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://nur1232123.github.io/alif/terms.html';
+const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://alif.best/terms.html';
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
 /** «21 ноября 2026» без Intl: на части Android-телефонов он без русского языка */
