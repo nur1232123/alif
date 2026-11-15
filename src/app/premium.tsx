@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { STAGES } from '@/data/course';
 import { FREE_STAGES, FREE_TUTOR_PER_DAY, GUMROAD_URL, type PlanId, usePremium, WEB_PAYER } from '@/lib/premium';
@@ -32,6 +32,10 @@ export default function PremiumScreen() {
   const [promo, setPromo] = useState('');
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoNote, setPromoNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // Поле промокода внизу экрана: при открытой клавиатуре прокручиваем к нему, иначе его не видно
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  const [keyboard, setKeyboard] = useState(false);
+  const showField = () => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250);
 
   const applyPromo = async () => {
     if (!promo.trim() || promoBusy) return;
@@ -85,8 +89,12 @@ export default function PremiumScreen() {
   const after = plan.id === 'annual' ? `${plan.price} в год` : `${plan.price} в месяц`;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }} testID="premium">
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 24, gap: 18, width: '100%', maxWidth: 520, alignSelf: 'center' }}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} testID="premium">
+      <ScrollView
+        ref={scroll}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 24, gap: 18, width: '100%', maxWidth: 520, alignSelf: 'center' }}
+      >
         <Pressable accessibilityRole="button" accessibilityLabel="Закрыть" hitSlop={12} onPress={close} testID="close" style={{ alignSelf: 'flex-start' }}>
           <T size={22} weight="bold" tone="muted">✕</T>
         </Pressable>
@@ -188,7 +196,7 @@ export default function PremiumScreen() {
         {!isPremium || promoNote?.ok ? (
           <View style={{ gap: 10 }}>
             {!promoOpen ? (
-              <Pressable accessibilityRole="button" onPress={() => setPromoOpen(true)} hitSlop={8} style={{ alignSelf: 'center' }} testID="promo-open">
+              <Pressable accessibilityRole="button" onPress={() => { setPromoOpen(true); showField(); }} hitSlop={8} style={{ alignSelf: 'center' }} testID="promo-open">
                 <T size={15} tone="accent" weight="medium">{GUMROAD_URL ? 'Есть промокод или ключ покупки?' : 'Есть промокод?'}</T>
               </Pressable>
             ) : (
@@ -199,15 +207,17 @@ export default function PremiumScreen() {
                   autoCapitalize="characters"
                   autoCorrect={false}
                   onChangeText={(v) => { setPromo(v); setPromoNote(null); }}
+                  onFocus={() => { setKeyboard(true); showField(); }}
+                  onBlur={() => setKeyboard(false)}
                   onSubmitEditing={applyPromo}
-                  placeholder={GUMROAD_URL ? 'ALIF-… или ключ из письма' : 'ALIF-…'}
+                  placeholder={GUMROAD_URL ? 'Код или ключ из письма' : 'Промокод'}
                   placeholderTextColor={c.muted}
                   returnKeyType="done"
                   value={promo}
                   testID="promo-input"
                   style={{ minHeight: 50, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, color: c.ink, fontFamily: fonts.medium, fontSize: 17, letterSpacing: 1 }}
                 />
-                {promoBusy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Активировать" kind="quiet" onPress={applyPromo} disabled={!promo.trim()} testID="promo-apply" />}
+                {promoBusy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Активировать" kind="quiet" onPress={() => { Keyboard.dismiss(); applyPromo(); }} disabled={!promo.trim()} testID="promo-apply" />}
               </View>
             )}
             {promoNote ? <T size={14} tone={promoNote.ok ? 'good' : 'bad'} style={{ textAlign: 'center' }} testID="promo-note">{promoNote.text}</T> : null}
@@ -224,7 +234,7 @@ export default function PremiumScreen() {
         </View>
       </ScrollView>
 
-      {!isPremium ? (
+      {!isPremium && !keyboard ? (
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 14, gap: 8, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.bg }}>
           <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', gap: 6 }}>
             {busy === 'buy' ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label={cta} onPress={buy} disabled={busy !== null} testID="buy" />}
@@ -234,6 +244,6 @@ export default function PremiumScreen() {
           </View>
         </View>
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

@@ -1,0 +1,43 @@
+# Обновление по воздуху: после изменений в приложении ученики получают их сами при следующем запуске.
+# Нужен секрет репозитория EXPO_TOKEN (expo.dev → Account settings → Access tokens).
+# Обновление доходит только до сборок с тем же «отпечатком» нативной части (runtimeVersion: fingerprint):
+# если добавился нативный модуль, нужна новая сборка APK.
+name: Обновление приложения
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json']
+  workflow_dispatch:
+
+concurrency:
+  group: eas-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Нет EXPO_TOKEN — пропускаем
+        if: env.EXPO_TOKEN == ''
+        run: echo "Добавьте секрет EXPO_TOKEN в настройках репозитория, чтобы включить обновления по воздуху"
+      - uses: actions/checkout@v4
+        if: env.EXPO_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.EXPO_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.EXPO_TOKEN != ''
+        run: npm ci
+      - name: Проверки
+        if: env.EXPO_TOKEN != ''
+        run: npm run check
+      - name: Настройки как у APK
+        if: env.EXPO_TOKEN != ''
+        run: node scripts/env-from-eas.mjs preview
+      - name: Опубликовать обновление
+        if: env.EXPO_TOKEN != ''
+        run: npx eas-cli@latest update --channel preview --environment preview --message "$(git log -1 --pretty=%s)" --non-interactive

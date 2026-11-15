@@ -21,14 +21,16 @@
       "env": {
         "EXPO_PUBLIC_BILLING": "web",
         "EXPO_PUBLIC_GUMROAD_URL": "https://arabicapp.gumroad.com/l/geiwsb?wanted=true"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_BILLING": "store"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

@@ -193,3 +193,13 @@ node scripts/test-make-audio.mjs
 - Ссылка на APK: атрибут `data-apk` у `<body>` в `site/index.html`, сейчас `https://github.com/nur1232123/alif/releases/latest/download/alif.apk`. Новую версию выкладывайте в GitHub Releases с тем же именем файла `alif.apk` (маленькими буквами), и ссылка сама поведёт на неё.
 - Почта поддержки: alif.arabic.app@gmail.com (`SUPPORT_EMAIL` в `site/index.html`, а также `TERMS.md`, `PRIVACY.md`, `scripts/build-site.py`).
 - Свой домен: купить (около $10–15 в год), в Settings → Pages → Custom domain вписать его и добавить у регистратора DNS-запись, которую покажет GitHub.
+
+## Обновления по воздуху (EAS Update)
+
+Изменения в приложении доходят до учеников сами, при следующем запуске, без нового APK.
+- Один раз: expo.dev → Account settings → **Access tokens** → создать токен; на GitHub в репозитории
+  Settings → Secrets and variables → Actions → **New repository secret**: имя `EXPO_TOKEN`, значение — токен.
+- Дальше после каждого `git push` с изменениями в `src/` GitHub сам публикует обновление (`.github/workflows/update.yml`)
+  в канал `preview` — его слушают APK, собранные профилем `preview`.
+- Обновление получают только сборки с тем же «отпечатком» нативной части (`runtimeVersion: fingerprint`).
+  Добавили модуль с нативным кодом — нужна новая сборка APK.
