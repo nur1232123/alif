@@ -47,4 +47,9 @@ jobs:
           grep -n runtimeVersion app.json
       - name: Опубликовать обновление
         if: env.EXPO_TOKEN != ''
-        run: npx eas-cli@latest update --channel preview --environment preview --message "$(git log -1 --pretty=%s)" --non-interactive
+        run: |
+          test -n "$EXPO_PUBLIC_SERVER_URL" && test -n "$EXPO_PUBLIC_SUPABASE_URL" || { echo "Нет настроек EXPO_PUBLIC_*: обновление не публикуем"; exit 1; }
+          npx expo export --platform android --platform ios --output-dir dist
+          # Проверка, что настройки попали в сборку: без адреса сервера приложение пишет «Нет связи»
+          grep -rqs "alif-server.onrender.com" dist/_expo || { echo "В сборке нет адреса сервера: обновление не публикуем"; exit 1; }
+          npx eas-cli@latest update --channel preview --environment preview --skip-bundler --input-dir dist --message "$(git log -1 --pretty=%s)" --non-interactive
