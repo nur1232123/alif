@@ -3,7 +3,7 @@ FROM node:22-alpine
 RUN apk add --no-cache ffmpeg
 ENV NODE_ENV=production FFMPEG_PATH=ffmpeg
 WORKDIR /app
-COPY server.mjs .
+COPY server.mjs voiceover.mjs .
 USER node
 # Облако само задаёт порт через PORT, локально 8787
 EXPOSE 8787

@@ -30,10 +30,23 @@ let seen = null;
 // Подменённый RevenueCat: какой ответ отдать про Премиум
 let rc = { code: 200, body: { subscriber: { entitlements: {} } } };
 let rcSeen = null;
+let ttsCalls = 0;
 const azure = createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
+    if (req.url === '/tts') {
+      // Подменённый Gemini TTS: первый раз «лимит», потом PCM
+      ttsCalls++;
+      if (ttsCalls === 1) {
+        res.writeHead(429, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { details: [{ retryDelay: '0s' }] } }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.alloc(4800).toString('base64') } }] } }] }));
+      return;
+    }
     if (req.url.startsWith('/rc/')) {
       rcSeen = { url: req.url, headers: req.headers };
       res.writeHead(rc.code, { 'content-type': 'application/json' });
@@ -60,6 +73,7 @@ const app = spawn('node', ['server/server.mjs'], {
     REVENUECAT_SECRET: 'rc-secret',
     REVENUECAT_URL: 'http://127.0.0.1:9791/rc/',
     MAX_PER_MINUTE: '1000',
+    GEMINI_TTS_URL: 'http://127.0.0.1:9791/tts',
   },
   stdio: 'inherit',
 });
@@ -219,6 +233,22 @@ try {
   assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');
   // Другой телефон считается отдельно
   assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);
+  // Озвучка роликов: только с ключом проверяющего, потом ZIP со всеми репликами
+  assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=wrong')).status, 403, 'озвучка без ключа');
+  assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=nope&key=tester')).status, 404, 'нет такого сценария');
+  assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=tester')).status, 202, 'озвучка началась');
+  let vo;
+  for (let i = 0; i < 50; i++) {
+    vo = await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=tester');
+    if (vo.status !== 202) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(vo.status, 200, 'озвучка готова');
+  assert.equal(vo.headers.get('content-type'), 'application/zip');
+  const zipBuf = Buffer.from(await vo.arrayBuffer());
+  assert.equal(zipBuf.readUInt32LE(0), 0x04034b50, 'это ZIP');
+  assert.equal(zipBuf.readUInt16LE(zipBuf.length - 12), 12, 'в архиве 11 реплик и lines.txt');
+  assert.ok(zipBuf.includes(Buffer.from('RIFF')), 'реплики в WAV');
   const health = await (await fetch('http://127.0.0.1:9792/health')).json();
   assert.deepEqual(health, { ok: true, voice: true, tutor: true });
 

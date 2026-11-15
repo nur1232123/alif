@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { voiceoverJob } from './voiceover.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -371,8 +372,33 @@ function send(res, code, body) {
   res.end(JSON.stringify(body));
 }
 
+/** Страница озвучки ролика: пока готовится — обновляется сама, потом отдаёт ZIP */
+function voiceoverPage(req, res) {
+  const url = new URL(req.url, 'http://localhost');
+  const page = (code, text, refresh) => {
+    res.writeHead(code, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">${refresh ? '<meta http-equiv="refresh" content="8">' : ''}<body style="font:18px system-ui;padding:24px;max-width:640px">${text}</body>`);
+  };
+  if (!TESTER_KEY || url.searchParams.get('key') !== TESTER_KEY) return page(403, 'Нужен ключ проверяющего: ?key=…');
+  if (!GEMINI_KEY) return page(503, 'Нет GEMINI_API_KEY на сервере.');
+  const id = url.searchParams.get('id') ?? '';
+  const job = voiceoverJob(id, GEMINI_KEY, url.searchParams.has('retry'));
+  if (job.state === 'unknown') return page(404, `Нет сценария «${id.replace(/[<>&"]/g, '')}».`);
+  if (job.state === 'running') return page(202, `Озвучиваю: ${job.done} из ${job.total}. Страница обновится сама, ничего не нажимайте.`, true);
+  if (job.state === 'failed') {
+    const err = job.error.replace(/[<>&"]/g, '');
+    return page(500, `Не получилось: ${err}<br><br>Попробовать снова: добавьте к адресу <b>&amp;retry</b>`);
+  }
+  res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="voiceover-${id}.zip"`, 'cache-control': 'no-store' });
+  res.end(job.zip);
+}
+
 const server = createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!VOICE_ENGINE, tutor: !!GEMINI_KEY });
+  if (req.method === 'GET' && req.url.startsWith('/voiceover?')) {
+    if (limited(clientIp(req))) return send(res, 429, { error: 'too many requests' });
+    return voiceoverPage(req, res);
+  }
   const isPremiumCheck = req.method === 'GET' && req.url === '/premium';
   if (!isPremiumCheck && (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor'))) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
