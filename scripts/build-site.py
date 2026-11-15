@@ -56,7 +56,7 @@ REFUND = """# Возврат денег
 
 ## Как вернуть деньги
 
-- Напишите нам в течение 14 дней после оплаты: ПОЧТА_ПОДДЕРЖКИ. Укажите почту, на которую пришёл чек.
+- Напишите нам в течение 14 дней после оплаты: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com). Укажите почту, на которую пришёл чек.
 - Или ответьте на письмо с чеком от Paddle — там же есть ссылка для помощи с заказом.
 - Возврат за оплату на сайте проводит Paddle.com, наш продавец (Merchant of Record). Деньги
   возвращаются на ту же карту, обычно за 5–10 рабочих дней.
@@ -79,7 +79,7 @@ REFUND = """# Возврат денег
 # Refund policy (English)
 
 If Alif Premium is not right for you, we will refund your payment in full within 14 days, no questions asked.
-Contact SUPPORT_EMAIL or reply to your Paddle receipt. Web payments are processed and refunded by Paddle.com,
+Contact [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com) or reply to your Paddle receipt. Web payments are processed and refunded by Paddle.com,
 our Merchant of Record, usually within 5–10 business days. The 7-day free trial is not charged if cancelled
 before it ends. Purchases made in Google Play or the App Store are refunded under the store's rules.
 """

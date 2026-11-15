@@ -55,4 +55,4 @@
 
 ## Связь
 
-Вопросы о данных: ПОЧТА_ПОДДЕРЖКИ
+Вопросы о данных: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com)

@@ -3,7 +3,7 @@
 Дата: 14 ноября 2026 года
 
 «Алиф» — приложение для изучения арабского языка на русском. Его разрабатывает и поддерживает частный разработчик.
-Связь: ПОЧТА_ПОДДЕРЖКИ.
+Связь: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).
 
 ## Бесплатная часть и Премиум
 
@@ -48,7 +48,7 @@
 
 # Alif — Terms of Use (summary in English)
 
-Alif is an app for learning Arabic, made by an independent developer. Contact: SUPPORT_EMAIL.
+Alif is an app for learning Arabic, made by an independent developer. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).
 Free: stages 1–2 and 3 AI tutor questions per day. Alif Premium: stages 3–5 and unlimited AI tutor,
 $4.99 per month or $29.99 per year, with a 7-day free trial. Subscriptions renew automatically until cancelled;
 cancel any time via the link in the Paddle receipt email or in Google Play / Apple ID settings.
