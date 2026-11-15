@@ -207,6 +207,8 @@ section { padding: clamp(56px, 9vw, 104px) 0; }
 .plan-premium li::before { background: var(--gold); }
 .yearly { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--plan-ink) 10%, transparent); }
 .yearly b { color: var(--gold); font-weight: 600; }
+.btn-gold { background: var(--gold); color: #10302A; justify-self: start; }
+.btn-gold:hover { background: color-mix(in srgb, var(--gold) 88%, white); }
 .small { font-size: 14px; }
 
 /* Вопросы */
