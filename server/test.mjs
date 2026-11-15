@@ -206,6 +206,14 @@ try {
   assert.equal(cancelled.plan, 'monthly', 'тариф по названию продукта');
   assert.equal(cancelled.willRenew, false, 'отменённая не продлится');
   assert.equal(cancelled.billingIssue, true, 'проблема с оплатой');
+  // Тестовая покупка (sandbox) не даёт Премиум ученику, но засчитывается проверяющему
+  rc = {
+    code: 200,
+    body: { subscriber: { entitlements: { premium: { expires_date: until, product_identifier: 'pri_sbx' } }, subscriptions: { pri_sbx: { store: 'paddle', is_sandbox: true, period_type: 'trial' } } } },
+  };
+  assert.equal((await (await premium('sandbox-buyer')).json()).premium, false, 'тестовая карта 4242 не даёт Премиум');
+  const asTester = await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok', 'x-device-id': 'device-prem-0000001', 'x-rc-user': 'sandbox-buyer', 'x-tester-key': 'tester' } });
+  assert.equal((await asTester.json()).premium, true, 'проверяющему тестовая покупка засчитывается');
   rc = { code: 200, body: { subscriber: { management_url: 'javascript:alert(1)', entitlements: {} } } };
   assert.deepEqual(await (await premium('web-free')).json(), { premium: false, manageUrl: null, details: null, checked: true }, 'не оплатил, странная ссылка отброшена');
   assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');

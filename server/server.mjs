@@ -57,6 +57,9 @@ const TESTER_KEY = (process.env.TESTER_KEY ?? '').trim();
 /** Секретный ключ RevenueCat: по нему сервер сам проверяет, есть ли у ученика Премиум */
 const RC_SECRET = (process.env.REVENUECAT_SECRET ?? '').trim();
 const RC_URL = process.env.REVENUECAT_URL ?? 'https://api.revenuecat.com/v1/subscribers/';
+// Тестовые покупки (Paddle sandbox, карта 4242) засчитываются только проверяющему с TESTER_KEY.
+// ALLOW_SANDBOX=1 — засчитывать всем (пока настоящей оплаты ещё нет и идёт проверка)
+const ALLOW_SANDBOX = process.env.ALLOW_SANDBOX === '1';
 const ENTITLEMENT = process.env.ENTITLEMENT ?? 'premium';
 
 /** Подсказывает адрес компьютера в сети: его нужно вписать в .env приложения */
@@ -107,9 +110,11 @@ function subscriptionDetails(ent, sub) {
 }
 
 /** Подписка ученика в RevenueCat: есть ли Премиум и где ею управлять (отменить, сменить карту) */
-async function premiumInfo(userId) {
+async function premiumInfo(userId, sandboxOk = false) {
   if (!RC_SECRET || !userId || userId.length > 200) return { active: false, manageUrl: null, details: null };
-  const cached = premiumCache.get(userId);
+  sandboxOk = sandboxOk || ALLOW_SANDBOX;
+  const key = `${sandboxOk ? 's' : 'l'}:${userId}`;
+  const cached = premiumCache.get(key);
   // «Есть Премиум» помним 10 минут, «нет» — 20 секунд: только что оплативший не должен ждать
   if (cached && Date.now() - cached.at < (cached.active ? 10 * 60_000 : 20_000)) return cached;
   let active = false;
@@ -123,20 +128,22 @@ async function premiumInfo(userId) {
     if (response.ok) {
       const data = await response.json();
       const ent = data?.subscriber?.entitlements?.[ENTITLEMENT];
-      active = !!ent && (ent.expires_date === null || Date.parse(ent.expires_date) > Date.now());
+      const sub = ent ? data.subscriber.subscriptions?.[ent.product_identifier] : null;
+      active = !!ent && (ent.expires_date === null || Date.parse(ent.expires_date) > Date.now()) && (sandboxOk || !sub?.is_sandbox);
       const url = data?.subscriber?.management_url;
       manageUrl = typeof url === 'string' && url.startsWith('https://') ? url : null;
-      if (ent) details = subscriptionDetails(ent, data.subscriber.subscriptions?.[ent.product_identifier]);
+      if (ent) details = subscriptionDetails(ent, sub);
     }
   } catch (error) {
     console.error(`RevenueCat: ${error.message}`);
   }
   const info = { active, manageUrl, details, at: Date.now() };
-  premiumCache.set(userId, info);
+  premiumCache.set(key, info);
   return info;
 }
 
-const hasPremium = async (userId) => (await premiumInfo(userId)).active;
+const hasPremium = async (userId, sandboxOk) => (await premiumInfo(userId, sandboxOk)).active;
+const isTester = (req) => !!TESTER_KEY && req.headers['x-tester-key']?.toString().trim() === TESTER_KEY;
 
 /** Адрес ученика: за прокси облака настоящий адрес приходит в заголовке */
 function clientIp(req) {
@@ -380,7 +387,7 @@ const server = createServer(async (req, res) => {
   // Есть ли Премиум у вошедшего ученика: приложение спрашивает после оплаты на сайте и при запуске
   if (isPremiumCheck) {
     if (overDaily(`ip-premium:${ip}`, 2000)) return send(res, 429, { error: 'too many requests' });
-    const info = await premiumInfo(req.headers['x-rc-user']?.toString());
+    const info = await premiumInfo(req.headers['x-rc-user']?.toString(), isTester(req));
     return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, details: info.active ? info.details : null, checked: !!RC_SECRET });
   }
   if (req.url === '/tutor') {
@@ -388,8 +395,7 @@ const server = createServer(async (req, res) => {
     if (overDaily(`ip-tutor:${ip}`, IP_TUTOR_PER_DAY) || overDaily(`dev-tutor:${device}`, DEVICE_TUTOR_PER_DAY)) {
       return send(res, 429, { error: 'too many requests' });
     }
-    const tester = TESTER_KEY && req.headers['x-tester-key']?.toString().trim() === TESTER_KEY;
-    const unlimited = tester || (await hasPremium(req.headers['x-rc-user']?.toString()));
+    const unlimited = isTester(req) || (await hasPremium(req.headers['x-rc-user']?.toString()));
     if (!unlimited && peekDaily(`free-tutor:${device}`) >= FREE_TUTOR_PER_DAY) return send(res, 429, { error: 'limit' });
     try {
       const input = readMessages(await readBody(req));
@@ -447,7 +453,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     console.log(`Сервер «Алиф» работает на порту ${PORT}`);
     console.log(`Проверка голоса: ${VOICE_ENGINE ? `включена (${VOICE_ENGINE})` : 'выключена (нет GROQ_API_KEY или AZURE_KEY)'}`);
     console.log(`ИИ-учитель: ${GEMINI_KEY ? `включён, модель ${GEMINI_MODEL}` : 'выключен (нет GEMINI_API_KEY)'}`);
-    console.log(`Защита: ${FREE_TUTOR_PER_DAY} вопроса в день без Премиума${TESTER_KEY ? ', ключ проверяющего задан' : ''}${RC_SECRET ? ', Премиум проверяется через RevenueCat' : ''}`);
+    console.log(`Защита: ${FREE_TUTOR_PER_DAY} вопроса в день без Премиума${TESTER_KEY ? ', ключ проверяющего задан' : ''}${RC_SECRET ? `, Премиум проверяется через RevenueCat${ALLOW_SANDBOX ? ' (тестовые покупки засчитываются всем)' : ''}` : ''}`);
     showAddresses();
   });
 }
