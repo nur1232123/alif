@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
+import * as WebBrowser from 'expo-web-browser';
 import type { Week } from '@/data/types';
 import { useAccount } from './account';
 import { dayKey } from './progress';
@@ -298,10 +299,13 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
           // Почта аккаунта подставляется в оплату: по ней сервер сам включит Премиум после покупки
           const params = new URLSearchParams({ [id === 'annual' ? 'yearly' : 'monthly']: 'true' });
           if (user.email) params.set('email', user.email);
-          await Linking.openURL(`${GUMROAD_URL}${GUMROAD_URL.includes('?') ? '&' : '?'}${params.toString()}`);
-          // Вернётся из браузера — сразу проверим покупку, не дожидаясь паузы между проверками
+          // Оплата открывается панелью внутри приложения; закрыл панель — сразу проверяем покупку
           licenseChecked.current = 0;
-          return 'pending';
+          await WebBrowser.openBrowserAsync(`${GUMROAD_URL}${GUMROAD_URL.includes('?') ? '&' : '?'}${params.toString()}`, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+          });
+          licenseChecked.current = 0;
+          return (await refreshWeb()) ? 'ok' : 'pending';
         }
         if (!WEB_PURCHASE_URL) return 'unavailable';
         // Номер аккаунта в ссылке: после оплаты Премиум сам появится у этого ученика
@@ -325,7 +329,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
         return (error as { userCancelled?: boolean })?.userCancelled ? 'cancelled' : 'error';
       }
     },
-    [plans, testOverride, write, user],
+    [plans, testOverride, write, user, refreshWeb],
   );
 
   const restore = useCallback(async () => {
