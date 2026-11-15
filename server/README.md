@@ -47,6 +47,7 @@ npm.cmd run server
 - тестовые покупки (Paddle sandbox, карта 4242) засчитываются только с ключом проверяющего `TESTER_KEY`; чтобы засчитывать их всем, задайте `ALLOW_SANDBOX=1`;
 - `TESTER_KEY`: с этим ключом (`EXPO_PUBLIC_TESTER_KEY` в `.env` автора) учитель без лимита;
 - промокоды: `POST /promo` с входом ученика. Код проверяет функция `redeem_promo` в Supabase (`supabase/promo.sql`), сервер выдаёт подарочный Премиум в RevenueCat; нужны `SUPABASE_URL`, `SUPABASE_KEY` (публичные) и `REVENUECAT_SECRET`;
+- ключи покупок Gumroad: тот же `POST /promo`, если код похож на ключ Gumroad. Сервер проверяет его у Gumroad (`GUMROAD_PRODUCT_ID`), привязывает к аккаунту (`supabase/license.sql`) и выдаёт Премиум на 3 дня; `POST /license-refresh` продлевает его при запуске приложения, пока подписка активна;
 - озвучка роликов: `GET /voiceover?id=tochki&key=<TESTER_KEY>` в браузере. Сервер озвучивает реплики голосом Gemini TTS (сценарии в `voiceover.mjs`) и отдаёт ZIP с WAV; модель меняется в `GEMINI_TTS_MODEL`;
 - на один телефон и один адрес есть дневные пределы для учителя и голоса (`DEVICE_*_PER_DAY`, `IP_*_PER_DAY`);
 - если задан `APP_TOKEN`, запросы без него отклоняются;

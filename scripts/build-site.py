@@ -54,13 +54,13 @@ REFUND = """# Возврат денег
 
 Если «Алиф Премиум» вам не подошёл, мы вернём деньги полностью. Причину объяснять не нужно.
 
-Продавец приложения: Nur Urmatov (частное лицо, Иордания). Оплату на сайте принимает Paddle.com.
+Продавец приложения: Nur Urmatov (частное лицо, Иордания). Оплату на сайте принимает Gumroad.
 
 ## Как вернуть деньги
 
 - Напишите нам в течение 14 дней после оплаты: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com). Укажите почту, на которую пришёл чек.
-- Или ответьте на письмо с чеком от Paddle — там же есть ссылка для помощи с заказом.
-- Возврат за оплату на сайте проводит Paddle.com, наш продавец (Merchant of Record). Деньги
+- Или ответьте на письмо с чеком от Gumroad.
+- Возврат за оплату на сайте проводит Gumroad, наш продавец (Merchant of Record). Деньги
   возвращаются на ту же карту, обычно за 5–10 рабочих дней.
 
 ## Пробный период
@@ -69,7 +69,8 @@ REFUND = """# Возврат денег
 
 ## Отмена подписки
 
-Отменить можно в любой момент: в приложении (Профиль → «Моя подписка») или по ссылке в письме от Paddle.
+Отменить можно в любой момент на Gumroad: в разделе Library или по ссылке в письме с чеком
+(из приложения: Профиль → «Моя подписка» → «Управлять на Gumroad»).
 После отмены Премиум работает до конца оплаченного срока, следующего списания не будет.
 
 ## Покупки в Google Play и App Store
@@ -81,7 +82,7 @@ REFUND = """# Возврат денег
 # Refund policy (English)
 
 Alif is sold by Nur Urmatov (individual, Jordan). If Alif Premium is not right for you, we will refund your payment in full within 14 days, no questions asked.
-Contact [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com) or reply to your Paddle receipt. Web payments are processed and refunded by Paddle.com,
+Contact [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com) or reply to your Gumroad receipt. Web payments are processed and refunded by Gumroad,
 our Merchant of Record, usually within 5–10 business days. The 7-day free trial is not charged if cancelled
 before it ends. Purchases made in Google Play or the App Store are refunded under the store's rules.
 """

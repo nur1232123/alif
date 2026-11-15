@@ -151,7 +151,100 @@ async function premiumInfo(userId, sandboxOk = false) {
 const hasPremium = async (userId, sandboxOk) => (await premiumInfo(userId, sandboxOk)).active;
 const isTester = (req) => !!TESTER_KEY && req.headers['x-tester-key']?.toString().trim() === TESTER_KEY;
 
-/** Промокод: база отмечает его использованным, RevenueCat выдаёт Премиум до нужной даты */
+/** Вызов функции базы Supabase от имени вошедшего ученика */
+async function supabaseRpc(fn, token, body = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status === 401 || response.status === 403) return { auth: false };
+  if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
+  return { auth: true, data: await response.json() };
+}
+
+/** Подарочный Премиум в RevenueCat до нужного момента */
+async function grantPremium(user, endMs) {
+  const response = await fetch(`${RC_URL}${encodeURIComponent(user)}/entitlements/${ENTITLEMENT}/promotional`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RC_SECRET}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ end_time_ms: endMs }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`RevenueCat ${response.status} ${(await response.text()).slice(0, 200)}`);
+  premiumCache.delete(`l:${user}`);
+  premiumCache.delete(`s:${user}`);
+}
+
+// Покупка на Gumroad: ключ вида XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX из письма с чеком
+const LICENSE_RE = /^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/i;
+const GUMROAD_PRODUCT_ID = (process.env.GUMROAD_PRODUCT_ID ?? '').trim();
+const GUMROAD_URL = process.env.GUMROAD_URL ?? 'https://api.gumroad.com/v2/licenses/verify';
+// Премиум по ключу выдаётся на 3 дня и продлевается, пока подписка на Gumroad активна:
+// приложение спрашивает сервер при запуске, сервер проверяет подписку у Gumroad
+const LICENSE_GRACE_MS = 3 * 24 * 3600 * 1000;
+
+/** Активна ли покупка на Gumroad: 'active', 'inactive' (отменена, возврат) или 'not-found' */
+async function gumroadLicense(key) {
+  const response = await fetch(GUMROAD_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ product_id: GUMROAD_PRODUCT_ID, license_key: key, increment_uses_count: 'false' }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status === 404) return 'not-found';
+  if (!response.ok) throw new Error(`Gumroad ${response.status} ${(await response.text()).slice(0, 200)}`);
+  const data = await response.json();
+  if (!data?.success) return 'not-found';
+  const p = data.purchase ?? {};
+  if (p.refunded || p.chargebacked || p.disputed || p.subscription_ended_at || p.subscription_failed_at) return 'inactive';
+  return 'active';
+}
+
+/** Ключ покупки: проверяем у Gumroad, привязываем к аккаунту, включаем Премиум */
+async function redeemLicense(res, token, key) {
+  if (!GUMROAD_PRODUCT_ID) return send(res, 503, { error: 'off' });
+  try {
+    const state = await gumroadLicense(key);
+    if (state === 'not-found') return send(res, 400, { error: 'not-found' });
+    if (state === 'inactive') return send(res, 400, { error: 'expired' });
+    const bound = await supabaseRpc('bind_license', token, { p_key: key });
+    if (!bound.auth || bound.data?.error === 'auth') return send(res, 401, { error: 'auth' });
+    if (bound.data?.error === 'taken') return send(res, 400, { error: 'taken' });
+    if (!bound.data?.ok) return send(res, 400, { error: 'not-found' });
+    const endsAt = Date.now() + LICENSE_GRACE_MS;
+    await grantPremium(String(bound.data.user), endsAt);
+    return send(res, 200, { ok: true, endsAt: null, subscription: true });
+  } catch (error) {
+    console.error(`Ключ покупки: ${error.message}`);
+    return send(res, 502, { error: 'unavailable' });
+  }
+}
+
+/** Приложение при запуске: продлить Премиум по сохранённым ключам, если подписка ещё активна */
+async function refreshLicenses(req, res, ip, device) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !RC_SECRET || !GUMROAD_PRODUCT_ID) return send(res, 200, { ok: false });
+  if (overDaily(`ip-lic:${ip}`, 200) || overDaily(`dev-lic:${device}`, 40)) return send(res, 429, { error: 'too many requests' });
+  const token = /^Bearer (\S{20,4000})$/.exec(req.headers.authorization ?? '')?.[1];
+  if (!token) return send(res, 401, { error: 'auth' });
+  try {
+    const mine = await supabaseRpc('my_licenses', token);
+    if (!mine.auth) return send(res, 401, { error: 'auth' });
+    for (const key of (mine.data?.keys ?? []).slice(0, 5)) {
+      if ((await gumroadLicense(String(key))) === 'active') {
+        await grantPremium(String(mine.data.user), Date.now() + LICENSE_GRACE_MS);
+        return send(res, 200, { ok: true });
+      }
+    }
+    return send(res, 200, { ok: false });
+  } catch (error) {
+    console.error(`Продление по ключу: ${error.message}`);
+    return send(res, 502, { error: 'unavailable' });
+  }
+}
+
+/** Промокод или ключ покупки: база отмечает код использованным, RevenueCat выдаёт Премиум */
 async function redeemPromo(req, res, ip, device) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !RC_SECRET) return send(res, 503, { error: 'off' });
   if (overDaily(`ip-promo:${ip}`, 60) || overDaily(`dev-promo:${device}`, 20)) return send(res, 429, { error: 'too many requests' });
@@ -159,44 +252,30 @@ async function redeemPromo(req, res, ip, device) {
   if (!token) return send(res, 401, { error: 'auth' });
   let code = '';
   try {
-    code = String(JSON.parse((await readBody(req)).toString('utf8'))?.code ?? '').slice(0, 64);
+    code = String(JSON.parse((await readBody(req)).toString('utf8'))?.code ?? '').trim().slice(0, 64);
   } catch {
     return send(res, 400, { error: 'bad request' });
   }
-  if (!code.trim()) return send(res, 400, { error: 'not-found' });
+  if (!code) return send(res, 400, { error: 'not-found' });
+  if (LICENSE_RE.test(code)) return redeemLicense(res, token, code.toUpperCase());
   let result;
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_promo`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_code: code }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.status === 401 || response.status === 403) return send(res, 401, { error: 'auth' });
-    if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
-    result = await response.json();
+    const rpc = await supabaseRpc('redeem_promo', token, { p_code: code });
+    if (!rpc.auth) return send(res, 401, { error: 'auth' });
+    result = rpc.data;
   } catch (error) {
     console.error(`Промокод: ${error.message}`);
     return send(res, 502, { error: 'unavailable' });
   }
   if (!result?.ok) return send(res, result?.error === 'auth' ? 401 : 400, { error: String(result?.error ?? 'not-found') });
-  const user = String(result.user);
   const endsAt = result.ends_at ? Date.parse(result.ends_at) : FOREVER_MS;
   try {
-    const response = await fetch(`${RC_URL}${encodeURIComponent(user)}/entitlements/${ENTITLEMENT}/promotional`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RC_SECRET}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ end_time_ms: endsAt }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new Error(`RevenueCat ${response.status} ${(await response.text()).slice(0, 200)}`);
+    await grantPremium(String(result.user), endsAt);
   } catch (error) {
     // Код уже засчитан этому ученику: повторный ввод выдаст Премиум снова
     console.error(`Промокод: ${error.message}`);
     return send(res, 502, { error: 'unavailable' });
   }
-  premiumCache.delete(`l:${user}`);
-  premiumCache.delete(`s:${user}`);
   return send(res, 200, { ok: true, endsAt: result.ends_at ? new Date(endsAt).toISOString() : null });
 }
 
@@ -454,7 +533,7 @@ const server = createServer(async (req, res) => {
     return voiceoverPage(req, res);
   }
   const isPremiumCheck = req.method === 'GET' && req.url === '/premium';
-  if (!isPremiumCheck && (req.method !== 'POST' || !['/check', '/tutor', '/promo'].includes(req.url))) return send(res, 404, { error: 'not found' });
+  if (!isPremiumCheck && (req.method !== 'POST' || !['/check', '/tutor', '/promo', '/license-refresh'].includes(req.url))) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
     console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
     return send(res, 401, { error: 'bad token' });
@@ -471,6 +550,7 @@ const server = createServer(async (req, res) => {
     return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, details: info.active ? info.details : null, checked: !!RC_SECRET });
   }
   if (req.url === '/promo') return redeemPromo(req, res, ip, device);
+  if (req.url === '/license-refresh') return refreshLicenses(req, res, ip, device);
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
     if (overDaily(`ip-tutor:${ip}`, IP_TUTOR_PER_DAY) || overDaily(`dev-tutor:${device}`, DEVICE_TUTOR_PER_DAY)) {

@@ -32,6 +32,7 @@ let rc = { code: 200, body: { subscriber: { entitlements: {} } } };
 let rcSeen = null;
 let ttsCalls = 0;
 let sbSeen = null;
+let gumSeen = null;
 const azure = createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
@@ -46,6 +47,29 @@ const azure = createServer((req, res) => {
       }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.alloc(4800).toString('base64') } }] } }] }));
+      return;
+    }
+    if (req.url === '/gumroad') {
+      // Подменённый Gumroad: ключ на A — активная подписка, на E — закончилась, остальные не существуют
+      const form = new URLSearchParams(Buffer.concat(chunks).toString());
+      gumSeen = Object.fromEntries(form);
+      const key = form.get('license_key') ?? '';
+      if (!key.startsWith('A') && !key.startsWith('E') && !key.startsWith('9')) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'That license does not exist for the provided product.' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ success: true, purchase: { refunded: false, chargebacked: false, subscription_ended_at: key.startsWith('E') ? '2026-01-01T00:00:00Z' : null, subscription_failed_at: null } }));
+      return;
+    }
+    if (req.url === '/sb/rest/v1/rpc/bind_license' || req.url === '/sb/rest/v1/rpc/my_licenses') {
+      const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
+      const out = req.url.endsWith('my_licenses')
+        ? { user: 'user-2', keys: ['AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD'] }
+        : body.p_key.startsWith('9') ? { error: 'taken' } : { ok: true, user: 'user-2' };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(out));
       return;
     }
     if (req.url === '/sb/rest/v1/rpc/redeem_promo') {
@@ -88,6 +112,8 @@ const app = spawn('node', ['server/server.mjs'], {
     GEMINI_TTS_URL: 'http://127.0.0.1:9791/tts',
     SUPABASE_URL: 'http://127.0.0.1:9791/sb',
     SUPABASE_KEY: 'sb-pub',
+    GUMROAD_URL: 'http://127.0.0.1:9791/gumroad',
+    GUMROAD_PRODUCT_ID: 'prod-123',
   },
   stdio: 'inherit',
 });
@@ -270,6 +296,28 @@ try {
   assert.equal(JSON.parse(rcSeen.body).end_time_ms, Date.parse('2030-01-01T00:00:00Z'));
   rc = { code: 500, body: {} };
   assert.equal((await promo('FOREVER')).status, 502, 'RevenueCat недоступен — можно ввести снова');
+
+  // Ключ покупки с Gumroad: проверяется у Gumroad, привязывается к аккаунту, Премиум на 3 дня с продлением
+  rc = { code: 200, body: {} };
+  const lic = await promo('aaaaaaaa-bbbbbbbb-cccccccc-dddddddd');
+  assert.equal(lic.status, 200, 'ключ активной подписки принят');
+  assert.equal((await lic.json()).subscription, true);
+  assert.equal(gumSeen.product_id, 'prod-123', 'Gumroad спрошен про наш товар');
+  assert.equal(gumSeen.license_key, 'AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD');
+  assert.equal(gumSeen.increment_uses_count, 'false');
+  assert.equal(rcSeen.url, '/rc/user-2/entitlements/premium/promotional');
+  const licEnd = JSON.parse(rcSeen.body).end_time_ms;
+  assert.ok(licEnd > Date.now() + 2.9 * 86400000 && licEnd < Date.now() + 3.1 * 86400000, 'Премиум на 3 дня');
+  assert.deepEqual(await (await promo('EEEEEEEE-BBBBBBBB-CCCCCCCC-DDDDDDDD')).json(), { error: 'expired' }, 'подписка закончилась');
+  assert.deepEqual(await (await promo('11111111-BBBBBBBB-CCCCCCCC-DDDDDDDD')).json(), { error: 'not-found' }, 'нет такого ключа');
+  assert.deepEqual(await (await promo('99999999-BBBBBBBB-CCCCCCCC-DDDDDDDD')).json(), { error: 'taken' }, 'ключ чужого аккаунта');
+  rcSeen = null;
+  const refresh = await fetch('http://127.0.0.1:9792/license-refresh', {
+    method: 'POST',
+    headers: { 'x-app-token': 'tok', 'x-device-id': 'device-promo-000001', authorization: 'Bearer ' + 'x'.repeat(40) },
+  });
+  assert.deepEqual(await refresh.json(), { ok: true }, 'продление по сохранённому ключу');
+  assert.equal(rcSeen.url, '/rc/user-2/entitlements/premium/promotional');
 
   // Озвучка роликов: только с ключом проверяющего, потом ZIP со всеми репликами
   assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=wrong')).status, 403, 'озвучка без ключа');

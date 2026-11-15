@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePremium, type SubDetails } from '@/lib/premium';
+import { GUMROAD_URL, usePremium, type SubDetails } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
 import { Button, Khatam, T } from '@/ui/kit';
 import { useColors } from '@/ui/theme';
@@ -17,6 +17,14 @@ export function russianDate(iso: string) {
   return Number.isNaN(d.getTime()) ? '' : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/**
+ * Покупка на Gumroad выдаётся как подарочный Премиум на 3 дня и продлевается сервером.
+ * Короткий «подарок» при подключённом Gumroad — это и есть подписка Gumroad
+ */
+export const isGumroad = (d: SubDetails | null) =>
+  !!GUMROAD_URL && d?.store === 'promotional' && !!d.expiresAt && Date.parse(d.expiresAt) - Date.now() < 4 * 24 * 3600 * 1000;
+const GUMROAD_LIBRARY = 'https://app.gumroad.com/library';
+
 const isWeb = (store: string | null) => !store || ['paddle', 'rc_billing', 'stripe'].includes(store);
 
 function storeName(store: string | null) {
@@ -28,6 +36,7 @@ function storeName(store: string | null) {
 
 /** Что сейчас с подпиской, одной-двумя фразами */
 function statusText(d: SubDetails, price: string) {
+  if (isGumroad(d)) return 'Подписка оформлена на Gumroad и продлевается сама, пока она там активна.';
   if (d.store === 'promotional' || d.expiresAt === null) {
     return d.expiresAt ? `Подарочный Премиум до ${russianDate(d.expiresAt)}.` : 'Подарочный Премиум навсегда.';
   }
@@ -107,7 +116,7 @@ export default function SubscriptionScreen() {
                 </View>
               ) : null}
               <T style={{ lineHeight: 23 }} testID="sub-status">{statusText(details, price)}</T>
-              <T size={13} tone="muted">Оплата: {storeName(details.store)}</T>
+              <T size={13} tone="muted">Оплата: {isGumroad(details) ? 'Gumroad' : storeName(details.store)}</T>
             </>
           ) : (
             <T tone="muted" style={{ lineHeight: 22 }} testID="sub-status">
@@ -116,6 +125,14 @@ export default function SubscriptionScreen() {
           )}
         </View>
 
+        {isGumroad(details ?? null) ? (
+          <View style={{ gap: 10 }}>
+            <Button label="Управлять на Gumroad" kind="quiet" onPress={() => Linking.openURL(GUMROAD_LIBRARY)} testID="sub-manage-gumroad" />
+            <T size={12} tone="muted" style={{ textAlign: 'center', lineHeight: 18 }}>
+              Отменить подписку или сменить карту можно на Gumroad: в разделе Library или по ссылке в письме с чеком.
+            </T>
+          </View>
+        ) : null}
         {details && details.store !== 'promotional' && details.expiresAt !== null ? (
           <View style={{ gap: 10 }}>
             {details.billingIssue ? <Button label="Обновить карту" onPress={openManage} testID="sub-card-update" /> : null}

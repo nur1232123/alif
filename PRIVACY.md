@@ -34,9 +34,10 @@
 
 ## Подписка
 
-Подписку можно оплатить картой на сайте через Paddle.com или в Google Play / App Store. Данные карты получают
-только они, нам они не видны. При оплате на сайте Paddle получает вашу почту и страну, чтобы прислать чек и посчитать налог.
-Чтобы приложение знало, активна ли подписка, Paddle или магазин передаёт сведения о покупке сервису RevenueCat.
+Подписку можно оплатить картой на сайте через Gumroad или в Google Play / App Store. Данные карты получают
+только они, нам они не видны. При оплате на сайте Gumroad получает вашу почту и страну, чтобы прислать чек и посчитать налог.
+Ключ покупки, который вы вводите в приложении, сохраняется в нашей базе (Supabase) вместе с номером аккаунта:
+по нему сервер проверяет у Gumroad, активна ли подписка. Статус Премиума хранит сервис RevenueCat.
 Он получает обезличенный номер покупателя, сведения о подписке и о телефоне (модель, система, страна магазина).
 Имя и прогресс в уроках туда не отправляются. Обработку регулирует политика конфиденциальности RevenueCat.
 
@@ -66,6 +67,6 @@ Without signing in, your progress stays on your phone. If you sign in with your 
 and learning progress (Supabase) so you can restore them on another device; you can delete your account in the app.
 Voice recordings for pronunciation checks are sent to our server and the speech recognition provider (Groq) and are not kept.
 Questions to the AI tutor are processed by Google Gemini; please do not include personal data.
-Subscriptions are paid via Paddle.com on the web or via Google Play / App Store; we never see your card details.
-Paddle or the store shares purchase status with RevenueCat so the app knows whether Premium is active.
+Subscriptions are paid via Gumroad on the web or via Google Play / App Store; we never see your card details.
+The Gumroad license key you enter is stored with your account so our server can check the subscription; Premium status is kept by RevenueCat.
 Data controller: Nur Urmatov (individual, Jordan). We do not sell your data and do not show ads. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).

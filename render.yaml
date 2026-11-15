@@ -31,3 +31,6 @@ services:
         value: https://zbydiisxzylwcexikezl.supabase.co
       - key: SUPABASE_KEY
         value: sb_publishable_rfK3fK3SNoCcStGCMDN4wQ_ihLc_AQO
+      # Оплата на сайте через Gumroad: ID товара (Product → License key). Ключи покупок проверяются у Gumroad
+      - key: GUMROAD_PRODUCT_ID
+        sync: false

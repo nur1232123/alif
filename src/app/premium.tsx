@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { STAGES } from '@/data/course';
-import { FREE_STAGES, FREE_TUTOR_PER_DAY, type PlanId, usePremium } from '@/lib/premium';
+import { FREE_STAGES, FREE_TUTOR_PER_DAY, GUMROAD_URL, type PlanId, usePremium, WEB_PAYER } from '@/lib/premium';
 import { PROMO_ERRORS, redeemPromo } from '@/lib/promo';
 import { russianDate } from './subscription';
 import { Button, Khatam, T } from '@/ui/kit';
@@ -12,8 +12,6 @@ import { fonts, useColors } from '@/ui/theme';
 const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://alif.best/terms.html';
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://alif.best/privacy.html';
 const STORE_NAME = Platform.OS === 'ios' ? 'Apple ID' : 'Google Play';
-// Оплата на сайте идёт через Paddle: он присылает чек и ссылку для отмены подписки на почту
-const WEB_PAYER = 'Paddle';
 
 const paidWeeks = STAGES.filter((s) => s.id > FREE_STAGES).reduce((sum, s) => sum + s.weeks.length, 0);
 
@@ -42,7 +40,7 @@ export default function PremiumScreen() {
     const result = await redeemPromo(promo);
     if (result.ok) {
       await restore();
-      setPromoNote({ ok: true, text: result.endsAt ? `Готово! Премиум включён до ${russianDate(result.endsAt)}.` : 'Готово! Премиум включён навсегда.' });
+      setPromoNote({ ok: true, text: result.subscription ? 'Готово! Премиум включён и будет продлеваться, пока подписка активна.' : result.endsAt ? `Готово! Премиум включён до ${russianDate(result.endsAt)}.` : 'Готово! Премиум включён навсегда.' });
     } else if (result.reason === 'need-login') {
       router.push('/account?next=premium');
     } else setPromoNote({ ok: false, text: PROMO_ERRORS[result.reason] });
@@ -58,7 +56,11 @@ export default function PremiumScreen() {
     setBusy(null);
     if (result === 'ok') close();
     else if (result === 'need-login') router.push('/account?next=premium');
-    else if (result === 'pending') setWaiting(true);
+    else if (result === 'pending') {
+      setWaiting(true);
+      // С Gumroad ученик возвращается с ключом покупки: поле для него сразу открыто
+      if (GUMROAD_URL) setPromoOpen(true);
+    }
     else if (result === 'unavailable') setNote('Оплата пока не подключена. Скоро здесь можно будет оформить подписку.');
     else if (result === 'error') setNote('Не получилось оформить подписку. Деньги не списаны. Попробуйте ещё раз.');
   };
@@ -103,7 +105,9 @@ export default function PremiumScreen() {
           <View style={{ gap: 6, padding: 14, borderRadius: 16, backgroundColor: c.soft }} testID="premium-waiting">
             <T weight="bold">Страница оплаты открыта в браузере</T>
             <T size={14} tone="muted" style={{ lineHeight: 20 }}>
-              После оплаты вернитесь в приложение, Премиум включится сам. Если не включился, нажмите «Проверить оплату».
+              {GUMROAD_URL
+                ? 'После оплаты Gumroad покажет ключ покупки и пришлёт его на почту. Скопируйте ключ и вставьте его ниже, в поле «Промокод или ключ покупки».'
+                : 'После оплаты вернитесь в приложение, Премиум включится сам. Если не включился, нажмите «Проверить оплату».'}
             </T>
           </View>
         ) : null}
@@ -185,18 +189,18 @@ export default function PremiumScreen() {
           <View style={{ gap: 10 }}>
             {!promoOpen ? (
               <Pressable accessibilityRole="button" onPress={() => setPromoOpen(true)} hitSlop={8} style={{ alignSelf: 'center' }} testID="promo-open">
-                <T size={15} tone="accent" weight="medium">Есть промокод?</T>
+                <T size={15} tone="accent" weight="medium">{GUMROAD_URL ? 'Есть промокод или ключ покупки?' : 'Есть промокод?'}</T>
               </Pressable>
             ) : (
               <View style={{ gap: 10, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface }}>
-                <T weight="medium">Промокод</T>
+                <T weight="medium">{GUMROAD_URL ? 'Промокод или ключ покупки' : 'Промокод'}</T>
                 <TextInput
-                  accessibilityLabel="Промокод"
+                  accessibilityLabel={GUMROAD_URL ? 'Промокод или ключ покупки' : 'Промокод'}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   onChangeText={(v) => { setPromo(v); setPromoNote(null); }}
                   onSubmitEditing={applyPromo}
-                  placeholder="ALIF-…"
+                  placeholder={GUMROAD_URL ? 'ALIF-… или ключ из письма' : 'ALIF-…'}
                   placeholderTextColor={c.muted}
                   returnKeyType="done"
                   value={promo}

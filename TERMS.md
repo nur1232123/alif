@@ -16,19 +16,22 @@
 
 - Первые 7 дней подписки бесплатны. Если отменить подписку до конца пробного периода, оплата не списывается.
 - Подписка продлевается автоматически на тот же срок, пока вы её не отмените.
-- Отменить подписку можно в любой момент: в приложении (Профиль → «Моя подписка») или по ссылке в письме
-  от Paddle (оплата на сайте), в настройках Google Play или Apple ID (оплата в магазине). После отмены Премиум работает до конца оплаченного периода.
+- Отменить подписку можно в любой момент: на Gumroad (раздел Library или ссылка в письме с чеком; из приложения:
+  Профиль → «Моя подписка» → «Управлять на Gumroad»), в настройках Google Play или Apple ID (оплата в магазине).
+  После отмены Премиум работает до конца оплаченного периода.
 
 ## Оплата
 
-Оплату на сайте принимает Paddle.com — он выступает продавцом (Merchant of Record), присылает чек и отвечает
-за налоги. Для оплаты в Google Play и App Store действуют правила этих магазинов.
+Оплату на сайте принимает Gumroad — он выступает продавцом (Merchant of Record), присылает чек с ключом покупки
+и отвечает за налоги. Чтобы включить Премиум, введите ключ покупки в приложении: экран Премиума → «Есть промокод
+или ключ покупки?». Один ключ работает для одного аккаунта. Для оплаты в Google Play и App Store действуют
+правила этих магазинов.
 
 ## Возврат денег
 
 Если Премиум вам не подошёл, напишите нам в течение 14 дней после оплаты — мы вернём деньги полностью
 (подробнее — на странице [«Возврат денег»](refund.html)).
-Возврат за оплату на сайте проводит Paddle, обычно за 5–10 рабочих дней. Возврат за покупки в Google Play
+Возврат за оплату на сайте проводит Gumroad, обычно за 5–10 рабочих дней. Возврат за покупки в Google Play
 и App Store оформляется через эти магазины по их правилам.
 
 ## ИИ-учитель и проверка голоса
@@ -52,6 +55,6 @@
 Alif is an app for learning Arabic, developed and sold by **Nur Urmatov**, an individual developer based in Jordan. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).
 Free: stages 1–2 and 3 AI tutor questions per day. Alif Premium: stages 3–5 and unlimited AI tutor,
 $4.99 per month or $29.99 per year, with a 7-day free trial. Subscriptions renew automatically until cancelled;
-cancel any time via the link in the Paddle receipt email or in Google Play / Apple ID settings.
-Web payments are processed by Paddle.com, our Merchant of Record. Refunds: full refund on request within
+cancel any time on Gumroad (Library or the link in the receipt email) or in Google Play / Apple ID settings.
+Web payments are processed by Gumroad, our Merchant of Record; the purchase is activated in the app with the license key from the receipt. Refunds: full refund on request within
 14 days of payment. AI answers and pronunciation checks are automatic and may contain mistakes.

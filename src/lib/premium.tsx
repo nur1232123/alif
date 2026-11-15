@@ -5,6 +5,7 @@ import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-nativ
 import type { Week } from '@/data/types';
 import { useAccount } from './account';
 import { dayKey } from './progress';
+import { refreshLicense } from './promo';
 import { E2E, serverHeaders, serverReady, SERVER_URL, setRcUser, TEST_MODE, testWindow } from './server';
 
 /** Бесплатно: этапы 1–2 (алфавит и чтение). С этапа 3 нужен Премиум */
@@ -30,6 +31,13 @@ export const BILLING: 'store' | 'web' = process.env.EXPO_PUBLIC_BILLING === 'sto
 const storeReady = BILLING === 'store' && Platform.OS !== 'web' && RC_KEY.length > 0;
 /** Ссылка на страницу оплаты RevenueCat (Funnels → Purchase Links), к ней добавляется номер ученика */
 const WEB_PURCHASE_URL = (process.env.EXPO_PUBLIC_WEB_PURCHASE_URL || '').replace(/\/+$/, '');
+/**
+ * Страница товара на Gumroad. Если задана, оплата на сайте идёт через Gumroad: ученик покупает,
+ * получает ключ покупки и вводит его в приложении (поле «Промокод или ключ покупки»)
+ */
+export const GUMROAD_URL = (process.env.EXPO_PUBLIC_GUMROAD_URL || '').replace(/\/+$/, '');
+/** Кто принимает оплату на сайте: его имя показывается в условиях и на экране подписки */
+export const WEB_PAYER = GUMROAD_URL ? 'Gumroad' : 'Paddle';
 /** Пакеты RevenueCat по умолчанию для месяца и года */
 const WEB_PACKAGE: Record<'annual' | 'monthly', string> = { annual: '$rc_annual', monthly: '$rc_monthly' };
 
@@ -231,6 +239,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   }, [user, write]);
 
   // Оплата на сайте: подписку знает RevenueCat, а приложение спрашивает у нашего сервера по номеру аккаунта
+  const licenseChecked = useRef(0);
   const refreshWeb = useCallback(async () => {
     // Автотест подставляет ответ сервера про подписку
     const mock = E2E ? testWindow?.__premiumInfo : undefined;
@@ -239,10 +248,19 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       return true;
     }
     if (BILLING !== 'web' || !serverReady || !user) return latest.current.active;
-    try {
+    type Info = { premium?: boolean; checked?: boolean; manageUrl?: string | null; details?: SubDetails | null };
+    const ask = async (): Promise<Info | null> => {
       const response = await fetch(`${SERVER_URL}/premium`, { headers: await serverHeaders() });
-      if (!response.ok) return latest.current.active;
-      const data = (await response.json()) as { premium?: boolean; checked?: boolean; manageUrl?: string | null; details?: SubDetails | null };
+      return response.ok ? ((await response.json()) as Info) : null;
+    };
+    try {
+      let data = await ask();
+      if (!data) return latest.current.active;
+      // Покупка на Gumroad: Премиум выдан на несколько дней, сервер продлевает его, пока подписка активна
+      if (GUMROAD_URL && data.checked && !data.premium && Date.now() - licenseChecked.current > 30 * 60 * 1000) {
+        licenseChecked.current = Date.now();
+        if (await refreshLicense()) data = (await ask()) ?? data;
+      }
       // Если сервер ещё не умеет проверять (нет ключа RevenueCat), прошлый статус не трогаем
       if (data.checked) write({ ...latest.current, active: data.premium === true, manageUrl: data.manageUrl ?? null, details: data.details ?? null });
       return data.premium === true;
@@ -275,8 +293,12 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     async (id: PlanId): Promise<PurchaseResult> => {
       const plan = plans.find((p) => p.id === id);
       if (BILLING === 'web' && !testOverride) {
-        if (!WEB_PURCHASE_URL) return 'unavailable';
         if (!user) return 'need-login';
+        if (GUMROAD_URL) {
+          await Linking.openURL(GUMROAD_URL);
+          return 'pending';
+        }
+        if (!WEB_PURCHASE_URL) return 'unavailable';
         // Номер аккаунта в ссылке: после оплаты Премиум сам появится у этого ученика
         await Linking.openURL(`${WEB_PURCHASE_URL}/${encodeURIComponent(user.id)}?package_id=${encodeURIComponent(WEB_PACKAGE[id])}`);
         return 'pending';
