@@ -201,5 +201,5 @@ node scripts/test-make-audio.mjs
   Settings → Secrets and variables → Actions → **New repository secret**: имя `EXPO_TOKEN`, значение — токен.
 - Дальше после каждого `git push` с изменениями в `src/` GitHub сам публикует обновление (`.github/workflows/update.yml`)
   в канал `preview` — его слушают APK, собранные профилем `preview`.
-- Обновление получают только сборки с тем же «отпечатком» нативной части (`runtimeVersion: fingerprint`).
-  Добавили модуль с нативным кодом — нужна новая сборка APK.
+- Обновление помечается отпечатком выложенного APK из `updates/runtime-preview.txt` (файл `assets/fingerprint` внутри APK).
+  После новой сборки APK впишите туда её отпечаток. Новая сборка нужна, если добавился модуль с нативным кодом.

@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <!-- Ссылка на APK: впишите её в data-apk, и кнопки «Скачать» заработают. Пока пусто — показывается «скоро». -->
-<body data-apk="https://github.com/nur1232123/alif/releases/latest/download/alif.apk">
+<body data-apk="https://github.com/nur1232123/alif/releases/latest">
 
 <header class="top">
   <div class="wrap">
@@ -291,6 +291,16 @@
 
   // Кнопки «Скачать»: пока APK нет, показываем «скоро»
   const apk = document.body.dataset.apk;
+  // Файл в последнем релизе может называться по-разному (alif.apk, Alif.apk…): берём любой .apk через GitHub
+  if (apk) {
+    fetch('https://api.github.com/repos/nur1232123/alif/releases/latest')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rel) => {
+        const file = rel?.assets?.find((x) => x.name.toLowerCase().endsWith('.apk'));
+        if (file) document.querySelectorAll('[data-download]').forEach((a) => { a.href = file.browser_download_url; });
+      })
+      .catch(() => {});
+  }
   document.querySelectorAll('[data-download]').forEach((a) => {
     if (apk) { a.href = apk; return; }
     a.setAttribute('aria-disabled', 'true');

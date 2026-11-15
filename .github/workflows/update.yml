@@ -7,7 +7,7 @@ name: Обновление приложения
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json']
+    paths: ['src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json', 'updates/**']
   workflow_dispatch:
 
 concurrency:
@@ -38,6 +38,13 @@ jobs:
       - name: Настройки как у APK
         if: env.EXPO_TOKEN != ''
         run: node scripts/env-from-eas.mjs preview
+      - name: Отпечаток выложенного APK
+        if: env.EXPO_TOKEN != ''
+        # Обновление помечается отпечатком APK из updates/runtime-preview.txt, иначе телефоны его не примут.
+        # После новой сборки APK впишите туда её отпечаток (файл assets/fingerprint внутри APK)
+        run: |
+          node -e "const f=require('fs');const a=JSON.parse(f.readFileSync('app.json'));a.expo.runtimeVersion=f.readFileSync('updates/runtime-preview.txt','utf8').trim();f.writeFileSync('app.json',JSON.stringify(a,null,2))"
+          grep -n runtimeVersion app.json
       - name: Опубликовать обновление
         if: env.EXPO_TOKEN != ''
         run: npx eas-cli@latest update --channel preview --environment preview --message "$(git log -1 --pretty=%s)" --non-interactive

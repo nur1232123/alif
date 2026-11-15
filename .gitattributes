@@ -1,0 +1,7 @@
+# Одинаковые переносы строк на Windows и Linux: иначе «отпечаток» для обновлений по воздуху считается по-разному
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.apk binary
