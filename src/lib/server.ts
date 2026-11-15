@@ -51,5 +51,7 @@ export type TestWindow = {
   __realBilling?: boolean;
   /** Автотест экрана подписки: ответ сервера про подписку */
   __premiumInfo?: { manageUrl: string | null; details: unknown };
+  /** Автотест промокода: какой ответ вернуть ('OK', 'OK:2030-01-01', или код ошибки) */
+  __promo?: string;
 };
 export const testWindow = (globalThis as unknown as { window?: TestWindow }).window;

@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { STAGES } from '@/data/course';
 import { FREE_STAGES, FREE_TUTOR_PER_DAY, type PlanId, usePremium } from '@/lib/premium';
+import { PROMO_ERRORS, redeemPromo } from '@/lib/promo';
+import { russianDate } from './subscription';
 import { Button, Khatam, T } from '@/ui/kit';
-import { useColors } from '@/ui/theme';
+import { fonts, useColors } from '@/ui/theme';
 
 const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || 'https://alif.best/terms.html';
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://alif.best/privacy.html';
@@ -27,6 +29,25 @@ export default function PremiumScreen() {
   const [busy, setBusy] = useState<'buy' | 'restore' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const plan = plans.find((p) => p.id === chosen) ?? plans[0];
+  // Промокод: поле раскрывается по нажатию «Есть промокод?»
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promo, setPromo] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoNote, setPromoNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const applyPromo = async () => {
+    if (!promo.trim() || promoBusy) return;
+    setPromoBusy(true);
+    setPromoNote(null);
+    const result = await redeemPromo(promo);
+    if (result.ok) {
+      await restore();
+      setPromoNote({ ok: true, text: result.endsAt ? `Готово! Премиум включён до ${russianDate(result.endsAt)}.` : 'Готово! Премиум включён навсегда.' });
+    } else if (result.reason === 'need-login') {
+      router.push('/account?next=premium');
+    } else setPromoNote({ ok: false, text: PROMO_ERRORS[result.reason] });
+    setPromoBusy(false);
+  };
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -160,6 +181,35 @@ export default function PremiumScreen() {
             ? `Оплата картой через ${WEB_PAYER}, он пришлёт чек на почту. Отменить подписку можно в любой момент по ссылке в этом письме.`
             : `Оплата списывается с аккаунта ${STORE_NAME}. Отменить подписку можно в любой момент в настройках ${STORE_NAME}.`}
         </T>
+        {!isPremium || promoNote?.ok ? (
+          <View style={{ gap: 10 }}>
+            {!promoOpen ? (
+              <Pressable accessibilityRole="button" onPress={() => setPromoOpen(true)} hitSlop={8} style={{ alignSelf: 'center' }} testID="promo-open">
+                <T size={15} tone="accent" weight="medium">Есть промокод?</T>
+              </Pressable>
+            ) : (
+              <View style={{ gap: 10, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface }}>
+                <T weight="medium">Промокод</T>
+                <TextInput
+                  accessibilityLabel="Промокод"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  onChangeText={(v) => { setPromo(v); setPromoNote(null); }}
+                  onSubmitEditing={applyPromo}
+                  placeholder="ALIF-…"
+                  placeholderTextColor={c.muted}
+                  returnKeyType="done"
+                  value={promo}
+                  testID="promo-input"
+                  style={{ minHeight: 50, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, color: c.ink, fontFamily: fonts.medium, fontSize: 17, letterSpacing: 1 }}
+                />
+                {promoBusy ? <ActivityIndicator color={c.accent} style={{ height: 52 }} /> : <Button label="Активировать" kind="quiet" onPress={applyPromo} disabled={!promo.trim()} testID="promo-apply" />}
+              </View>
+            )}
+            {promoNote ? <T size={14} tone={promoNote.ok ? 'good' : 'bad'} style={{ textAlign: 'center' }} testID="promo-note">{promoNote.text}</T> : null}
+          </View>
+        ) : null}
+
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
           <Pressable accessibilityRole="link" onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
             <T size={13} tone="accent">Условия использования</T>

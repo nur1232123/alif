@@ -31,6 +31,7 @@ let seen = null;
 let rc = { code: 200, body: { subscriber: { entitlements: {} } } };
 let rcSeen = null;
 let ttsCalls = 0;
+let sbSeen = null;
 const azure = createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
@@ -47,8 +48,19 @@ const azure = createServer((req, res) => {
       res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.alloc(4800).toString('base64') } }] } }] }));
       return;
     }
+    if (req.url === '/sb/rest/v1/rpc/redeem_promo') {
+      // Подменённая база: код FOREVER навсегда, MONTH на 30 дней, остальное — нет такого
+      sbSeen = { headers: req.headers, body: JSON.parse(Buffer.concat(chunks).toString()) };
+      const code = sbSeen.body.p_code;
+      const body = code === 'FOREVER' ? { ok: true, user: 'user-1', ends_at: null }
+        : code === 'MONTH' ? { ok: true, user: 'user-1', ends_at: '2030-01-01T00:00:00+00:00' }
+        : { error: 'not-found' };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(body));
+      return;
+    }
     if (req.url.startsWith('/rc/')) {
-      rcSeen = { url: req.url, headers: req.headers };
+      rcSeen = { url: req.url, headers: req.headers, body: Buffer.concat(chunks).toString() };
       res.writeHead(rc.code, { 'content-type': 'application/json' });
       res.end(JSON.stringify(rc.body));
       return;
@@ -74,6 +86,8 @@ const app = spawn('node', ['server/server.mjs'], {
     REVENUECAT_URL: 'http://127.0.0.1:9791/rc/',
     MAX_PER_MINUTE: '1000',
     GEMINI_TTS_URL: 'http://127.0.0.1:9791/tts',
+    SUPABASE_URL: 'http://127.0.0.1:9791/sb',
+    SUPABASE_KEY: 'sb-pub',
   },
   stdio: 'inherit',
 });
@@ -233,6 +247,30 @@ try {
   assert.equal((await fetch('http://127.0.0.1:9792/premium', { headers: { 'x-app-token': 'tok' } })).status, 400, 'без номера телефона');
   // Другой телефон считается отдельно
   assert.equal((await ask(one, 'tok', { 'x-device-id': 'device-free-0000002' })).status, 200);
+  // Промокоды: только вошедшему ученику, код проверяет база, Премиум выдаёт RevenueCat
+  const promo = (code, auth = 'Bearer ' + 'x'.repeat(40)) => fetch('http://127.0.0.1:9792/promo', {
+    method: 'POST',
+    headers: { 'x-app-token': 'tok', 'x-device-id': 'device-promo-000001', 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) },
+    body: JSON.stringify({ code }),
+  });
+  assert.equal((await promo('FOREVER', null)).status, 401, 'промокод без входа');
+  const bad = await promo('WRONG');
+  assert.equal(bad.status, 400);
+  assert.deepEqual(await bad.json(), { error: 'not-found' }, 'нет такого кода');
+  rc = { code: 200, body: {} };
+  const forever = await promo('FOREVER');
+  assert.equal(forever.status, 200, 'код навсегда принят');
+  assert.deepEqual(await forever.json(), { ok: true, endsAt: null });
+  assert.equal(sbSeen.headers.apikey, 'sb-pub', 'база вызвана с публичным ключом');
+  assert.equal(sbSeen.headers.authorization, 'Bearer ' + 'x'.repeat(40), 'и от имени ученика');
+  assert.equal(rcSeen.url, '/rc/user-1/entitlements/premium/promotional', 'Премиум выдан нужному ученику');
+  assert.equal(JSON.parse(rcSeen.body).end_time_ms, Date.UTC(2100, 0, 1), 'навсегда — до 2100 года');
+  const month = await (await promo('MONTH')).json();
+  assert.equal(month.endsAt, '2030-01-01T00:00:00.000Z', 'код на срок');
+  assert.equal(JSON.parse(rcSeen.body).end_time_ms, Date.parse('2030-01-01T00:00:00Z'));
+  rc = { code: 500, body: {} };
+  assert.equal((await promo('FOREVER')).status, 502, 'RevenueCat недоступен — можно ввести снова');
+
   // Озвучка роликов: только с ключом проверяющего, потом ZIP со всеми репликами
   assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=wrong')).status, 403, 'озвучка без ключа');
   assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=nope&key=tester')).status, 404, 'нет такого сценария');

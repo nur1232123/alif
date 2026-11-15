@@ -62,6 +62,11 @@ const RC_URL = process.env.REVENUECAT_URL ?? 'https://api.revenuecat.com/v1/subs
 // ALLOW_SANDBOX=1 — засчитывать всем (пока настоящей оплаты ещё нет и идёт проверка)
 const ALLOW_SANDBOX = process.env.ALLOW_SANDBOX === '1';
 const ENTITLEMENT = process.env.ENTITLEMENT ?? 'premium';
+// Промокоды: код проверяет база Supabase (функция redeem_promo) от имени вошедшего ученика,
+// сервер выдаёт подарочный Премиум в RevenueCat. Адрес и публичный ключ Supabase не секретные
+const SUPABASE_URL = (process.env.SUPABASE_URL ?? '').trim().replace(/\/(rest\/v1\/?)?$/, '');
+const SUPABASE_KEY = (process.env.SUPABASE_KEY ?? '').trim();
+const FOREVER_MS = Date.UTC(2100, 0, 1);
 
 /** Подсказывает адрес компьютера в сети: его нужно вписать в .env приложения */
 async function showAddresses() {
@@ -145,6 +150,55 @@ async function premiumInfo(userId, sandboxOk = false) {
 
 const hasPremium = async (userId, sandboxOk) => (await premiumInfo(userId, sandboxOk)).active;
 const isTester = (req) => !!TESTER_KEY && req.headers['x-tester-key']?.toString().trim() === TESTER_KEY;
+
+/** Промокод: база отмечает его использованным, RevenueCat выдаёт Премиум до нужной даты */
+async function redeemPromo(req, res, ip, device) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !RC_SECRET) return send(res, 503, { error: 'off' });
+  if (overDaily(`ip-promo:${ip}`, 60) || overDaily(`dev-promo:${device}`, 20)) return send(res, 429, { error: 'too many requests' });
+  const token = /^Bearer (\S{20,4000})$/.exec(req.headers.authorization ?? '')?.[1];
+  if (!token) return send(res, 401, { error: 'auth' });
+  let code = '';
+  try {
+    code = String(JSON.parse((await readBody(req)).toString('utf8'))?.code ?? '').slice(0, 64);
+  } catch {
+    return send(res, 400, { error: 'bad request' });
+  }
+  if (!code.trim()) return send(res, 400, { error: 'not-found' });
+  let result;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_promo`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_code: code }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status === 401 || response.status === 403) return send(res, 401, { error: 'auth' });
+    if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
+    result = await response.json();
+  } catch (error) {
+    console.error(`Промокод: ${error.message}`);
+    return send(res, 502, { error: 'unavailable' });
+  }
+  if (!result?.ok) return send(res, result?.error === 'auth' ? 401 : 400, { error: String(result?.error ?? 'not-found') });
+  const user = String(result.user);
+  const endsAt = result.ends_at ? Date.parse(result.ends_at) : FOREVER_MS;
+  try {
+    const response = await fetch(`${RC_URL}${encodeURIComponent(user)}/entitlements/${ENTITLEMENT}/promotional`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RC_SECRET}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ end_time_ms: endsAt }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`RevenueCat ${response.status} ${(await response.text()).slice(0, 200)}`);
+  } catch (error) {
+    // Код уже засчитан этому ученику: повторный ввод выдаст Премиум снова
+    console.error(`Промокод: ${error.message}`);
+    return send(res, 502, { error: 'unavailable' });
+  }
+  premiumCache.delete(`l:${user}`);
+  premiumCache.delete(`s:${user}`);
+  return send(res, 200, { ok: true, endsAt: result.ends_at ? new Date(endsAt).toISOString() : null });
+}
 
 /** Адрес ученика: за прокси облака настоящий адрес приходит в заголовке */
 function clientIp(req) {
@@ -400,7 +454,7 @@ const server = createServer(async (req, res) => {
     return voiceoverPage(req, res);
   }
   const isPremiumCheck = req.method === 'GET' && req.url === '/premium';
-  if (!isPremiumCheck && (req.method !== 'POST' || (req.url !== '/check' && req.url !== '/tutor'))) return send(res, 404, { error: 'not found' });
+  if (!isPremiumCheck && (req.method !== 'POST' || !['/check', '/tutor', '/promo'].includes(req.url))) return send(res, 404, { error: 'not found' });
   if (APP_TOKEN && req.headers['x-app-token']?.toString().trim() !== APP_TOKEN) {
     console.error('Приложение прислало неверный пароль. APP_TOKEN в server/.env и EXPO_PUBLIC_SERVER_TOKEN в .env должны совпадать');
     return send(res, 401, { error: 'bad token' });
@@ -416,6 +470,7 @@ const server = createServer(async (req, res) => {
     const info = await premiumInfo(req.headers['x-rc-user']?.toString(), isTester(req));
     return send(res, 200, { premium: info.active, manageUrl: info.manageUrl, details: info.active ? info.details : null, checked: !!RC_SECRET });
   }
+  if (req.url === '/promo') return redeemPromo(req, res, ip, device);
   if (req.url === '/tutor') {
     if (!GEMINI_KEY) return send(res, 503, { error: 'tutor is off' });
     if (overDaily(`ip-tutor:${ip}`, IP_TUTOR_PER_DAY) || overDaily(`dev-tutor:${device}`, DEVICE_TUTOR_PER_DAY)) {

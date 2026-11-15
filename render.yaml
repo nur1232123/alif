@@ -26,3 +26,8 @@ services:
       # Секретный ключ RevenueCat (sk_...): сервер сам проверяет Премиум. Добавить при подключении оплаты
       - key: REVENUECAT_SECRET
         sync: false
+      # Для промокодов: адрес и публичный ключ Supabase (те же, что в приложении, не секретные)
+      - key: SUPABASE_URL
+        value: https://zbydiisxzylwcexikezl.supabase.co
+      - key: SUPABASE_KEY
+        value: sb_publishable_rfK3fK3SNoCcStGCMDN4wQ_ihLc_AQO
