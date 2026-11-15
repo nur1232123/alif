@@ -295,7 +295,12 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       if (BILLING === 'web' && !testOverride) {
         if (!user) return 'need-login';
         if (GUMROAD_URL) {
-          await Linking.openURL(GUMROAD_URL);
+          // Почта аккаунта подставляется в оплату: по ней сервер сам включит Премиум после покупки
+          const params = new URLSearchParams({ [id === 'annual' ? 'yearly' : 'monthly']: 'true' });
+          if (user.email) params.set('email', user.email);
+          await Linking.openURL(`${GUMROAD_URL}${GUMROAD_URL.includes('?') ? '&' : '?'}${params.toString()}`);
+          // Вернётся из браузера — сразу проверим покупку, не дожидаясь паузы между проверками
+          licenseChecked.current = 0;
           return 'pending';
         }
         if (!WEB_PURCHASE_URL) return 'unavailable';

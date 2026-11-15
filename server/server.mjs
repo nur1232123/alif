@@ -2,7 +2,7 @@
 // Запуск: node server/server.mjs  Настройки: см. server/README.md
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { voiceoverJob } from './voiceover.mjs';
@@ -219,6 +219,44 @@ async function redeemLicense(res, token, key) {
   } catch (error) {
     console.error(`Ключ покупки: ${error.message}`);
     return send(res, 502, { error: 'unavailable' });
+  }
+}
+
+// Уведомления Gumroad о покупке (Settings → Advanced → Ping): адрес содержит этот секрет
+const GUMROAD_PING_SECRET = (process.env.GUMROAD_PING_SECRET ?? '').trim();
+
+/**
+ * Gumroad сообщает о покупке: привязываем ключ к аккаунту с почтой покупателя и сразу включаем Премиум.
+ * Если аккаунта с такой почтой ещё нет, покупка ждёт: привяжется, когда ученик войдёт (my_licenses)
+ */
+async function gumroadPing(req, res) {
+  const url = new URL(req.url, 'http://localhost');
+  const secret = url.searchParams.get('secret') ?? '';
+  if (!GUMROAD_PING_SECRET || secret.length !== GUMROAD_PING_SECRET.length || !timingSafeEqual(Buffer.from(secret), Buffer.from(GUMROAD_PING_SECRET))) {
+    return send(res, 403, { error: 'forbidden' });
+  }
+  const form = new URLSearchParams((await readBody(req)).toString('utf8'));
+  const key = form.get('license_key')?.trim() ?? '';
+  const email = form.get('email')?.trim() ?? '';
+  // Чужой товар или покупка без ключа: просто подтверждаем, чтобы Gumroad не повторял
+  if (form.get('product_id') !== GUMROAD_PRODUCT_ID || !LICENSE_RE.test(key) || !email) return send(res, 200, { ok: true, skipped: true });
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/gumroad_attach`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_secret: GUMROAD_PING_SECRET, p_email: email, p_key: key.toUpperCase() }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
+    const attached = await response.json();
+    if (attached?.ok && attached.user && (await gumroadLicense(key)) === 'active') {
+      await grantPremium(String(attached.user), Date.now() + LICENSE_GRACE_MS);
+    }
+    return send(res, 200, { ok: true });
+  } catch (error) {
+    // 500: Gumroad повторит уведомление позже
+    console.error(`Уведомление Gumroad: ${error.message}`);
+    return send(res, 500, { error: 'retry' });
   }
 }
 
@@ -528,6 +566,10 @@ function voiceoverPage(req, res) {
 
 const server = createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, voice: !!VOICE_ENGINE, tutor: !!GEMINI_KEY });
+  if (req.method === 'POST' && req.url.startsWith('/gumroad-ping?')) {
+    if (limited(clientIp(req))) return send(res, 429, { error: 'too many requests' });
+    return gumroadPing(req, res);
+  }
   if (req.method === 'GET' && req.url.startsWith('/voiceover?')) {
     if (limited(clientIp(req))) return send(res, 429, { error: 'too many requests' });
     return voiceoverPage(req, res);

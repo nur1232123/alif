@@ -44,3 +44,77 @@ revoke all on function public.bind_license(text) from public, anon;
 revoke all on function public.my_licenses() from public, anon;
 grant execute on function public.bind_license(text) to authenticated;
 grant execute on function public.my_licenses() to authenticated;
+
+-- ===== Автоматическое включение Премиума после покупки (уведомления Gumroad) =====
+-- Секрет уведомлений задаётся отдельно, не в репозитории:
+--   insert into server_secrets (name, value) values ('gumroad_ping', '<тот же GUMROAD_PING_SECRET, что на сервере>');
+
+create table if not exists public.server_secrets (
+  name text primary key,
+  value text not null
+);
+alter table public.server_secrets enable row level security;
+
+-- Покупки, у которых пока нет аккаунта с такой почтой: привяжутся, когда ученик войдёт
+create table if not exists public.pending_licenses (
+  license_key text primary key,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists pending_licenses_email on public.pending_licenses (lower(email));
+alter table public.pending_licenses enable row level security;
+
+create or replace function public.gumroad_attach(p_secret text, p_email text, p_key text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  expected text;
+  uid uuid;
+  k text := upper(trim(coalesce(p_key, '')));
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  select value into expected from server_secrets where name = 'gumroad_ping';
+  if expected is null or p_secret is distinct from expected then return json_build_object('error', 'secret'); end if;
+  if k = '' or e = '' then return json_build_object('error', 'bad'); end if;
+  select id into uid from auth.users where lower(email) = e limit 1;
+  if uid is null then
+    insert into pending_licenses (license_key, email) values (k, e)
+      on conflict (license_key) do update set email = excluded.email;
+    return json_build_object('pending', true);
+  end if;
+  insert into license_bindings (license_key, user_id) values (k, uid) on conflict (license_key) do nothing;
+  return json_build_object('ok', true, 'user', (select user_id from license_bindings where license_key = k));
+end;
+$$;
+revoke all on function public.gumroad_attach(text, text, text) from public;
+grant execute on function public.gumroad_attach(text, text, text) to anon, authenticated;
+
+-- my_licenses заодно забирает покупки, сделанные на почту ученика до входа
+create or replace function public.my_licenses()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  e text := lower(coalesce(auth.email(), ''));
+begin
+  if uid is null then return json_build_object('error', 'auth'); end if;
+  if e <> '' then
+    insert into license_bindings (license_key, user_id)
+      select license_key, uid from pending_licenses where lower(email) = e
+      on conflict (license_key) do nothing;
+    delete from pending_licenses where lower(email) = e;
+  end if;
+  return (
+    select json_build_object('user', uid, 'keys', coalesce(json_agg(license_key order by created_at desc), '[]'::json))
+    from license_bindings where user_id = uid
+  );
+end;
+$$;
+revoke all on function public.my_licenses() from public, anon;
+grant execute on function public.my_licenses() to authenticated;

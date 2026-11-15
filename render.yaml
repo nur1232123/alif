@@ -34,3 +34,6 @@ services:
       # Оплата на сайте через Gumroad: ID товара (Product → License key). Ключи покупок проверяются у Gumroad
       - key: GUMROAD_PRODUCT_ID
         sync: false
+      # Секрет уведомлений Gumroad о покупке (Settings → Advanced → Ping: .../gumroad-ping?secret=...)
+      - key: GUMROAD_PING_SECRET
+        sync: false

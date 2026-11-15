@@ -33,6 +33,7 @@ let rcSeen = null;
 let ttsCalls = 0;
 let sbSeen = null;
 let gumSeen = null;
+let attachSeen = null;
 const azure = createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
@@ -61,6 +62,13 @@ const azure = createServer((req, res) => {
       }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ success: true, purchase: { refunded: false, chargebacked: false, subscription_ended_at: key.startsWith('E') ? '2026-01-01T00:00:00Z' : null, subscription_failed_at: null } }));
+      return;
+    }
+    if (req.url === '/sb/rest/v1/rpc/gumroad_attach') {
+      attachSeen = { headers: req.headers, body: JSON.parse(Buffer.concat(chunks).toString()) };
+      const known = attachSeen.body.p_email === 'nur@example.com';
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(known ? { ok: true, user: 'user-3' } : { pending: true }));
       return;
     }
     if (req.url === '/sb/rest/v1/rpc/bind_license' || req.url === '/sb/rest/v1/rpc/my_licenses') {
@@ -114,6 +122,7 @@ const app = spawn('node', ['server/server.mjs'], {
     SUPABASE_KEY: 'sb-pub',
     GUMROAD_URL: 'http://127.0.0.1:9791/gumroad',
     GUMROAD_PRODUCT_ID: 'prod-123',
+    GUMROAD_PING_SECRET: 'ping-secret-123',
   },
   stdio: 'inherit',
 });
@@ -318,6 +327,25 @@ try {
   });
   assert.deepEqual(await refresh.json(), { ok: true }, 'продление по сохранённому ключу');
   assert.equal(rcSeen.url, '/rc/user-2/entitlements/premium/promotional');
+
+  // Уведомление Gumroad о покупке: Премиум включается сам, по почте покупателя
+  const ping = (secret, fields) => fetch(`http://127.0.0.1:9792/gumroad-ping?secret=${secret}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields),
+  });
+  const sale = { product_id: 'prod-123', email: 'nur@example.com', license_key: 'AAAAAAAA-11111111-22222222-33333333' };
+  assert.equal((await ping('wrong-secret-12', sale)).status, 403, 'уведомление без секрета');
+  rcSeen = null;
+  assert.equal((await ping('ping-secret-123', sale)).status, 200, 'уведомление принято');
+  assert.equal(attachSeen.body.p_secret, 'ping-secret-123', 'база проверяет секрет');
+  assert.equal(attachSeen.body.p_key, 'AAAAAAAA-11111111-22222222-33333333');
+  assert.equal(attachSeen.headers.authorization, undefined, 'без входа ученика, только публичный ключ');
+  assert.equal(rcSeen.url, '/rc/user-3/entitlements/premium/promotional', 'Премиум включён сразу');
+  rcSeen = null;
+  assert.equal((await ping('ping-secret-123', { ...sale, email: 'new@example.com' })).status, 200, 'аккаунта ещё нет');
+  assert.equal(rcSeen, null, 'Премиум выдастся, когда ученик войдёт');
+  assert.deepEqual(await (await ping('ping-secret-123', { ...sale, product_id: 'other' })).json(), { ok: true, skipped: true }, 'чужой товар');
 
   // Озвучка роликов: только с ключом проверяющего, потом ZIP со всеми репликами
   assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=wrong')).status, 403, 'озвучка без ключа');
