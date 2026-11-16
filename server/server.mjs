@@ -239,6 +239,8 @@ async function gumroadPing(req, res) {
   const form = new URLSearchParams((await readBody(req)).toString('utf8'));
   const key = form.get('license_key')?.trim() ?? '';
   const email = form.get('email')?.trim() ?? '';
+  // Для разбора проблем: какие поля прислал Gumroad (только названия, без значений)
+  console.log(`Уведомление Gumroad, поля: ${[...form.keys()].join(', ')}`);
   // Для разбора проблем: что пришло (без почты и ключа целиком)
   console.log(`Уведомление Gumroad: товар ${form.get('product_id') === GUMROAD_PRODUCT_ID ? 'наш' : `другой (${form.get('product_id')})`}, ключ ${key ? (LICENSE_RE.test(key) ? 'есть' : 'странный') : 'нет'}, почта ${email ? 'есть' : 'нет'}, тест ${form.get('test') ?? 'нет'}`);
   // Чужой товар или покупка без ключа: просто подтверждаем, чтобы Gumroad не повторял
