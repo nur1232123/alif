@@ -62,8 +62,6 @@ export default function PremiumScreen() {
     else if (result === 'need-login') router.push('/account?next=premium');
     else if (result === 'pending') {
       setWaiting(true);
-      // С Gumroad ученик возвращается с ключом покупки: поле для него сразу открыто
-      if (GUMROAD_URL) setPromoOpen(true);
     }
     else if (result === 'unavailable') setNote('Оплата пока не подключена. Скоро здесь можно будет оформить подписку.');
     else if (result === 'error') setNote('Не получилось оформить подписку. Деньги не списаны. Попробуйте ещё раз.');
@@ -114,7 +112,7 @@ export default function PremiumScreen() {
             <T weight="bold">Страница оплаты открыта в браузере</T>
             <T size={14} tone="muted" style={{ lineHeight: 20 }}>
               {GUMROAD_URL
-                ? 'Оплачивайте на ту же почту, что и в приложении: тогда после оплаты Премиум включится сам, вернитесь сюда и нажмите «Проверить оплату». Если оплатили на другую почту, вставьте ключ покупки из письма Gumroad в поле ниже.'
+                ? 'Оплачивайте на ту же почту, что и в приложении: тогда после оплаты Премиум включится сам. Если не включился, нажмите «Проверить оплату». Оплатили на другую почту — войдите в приложение с ней или напишите нам: alif.arabic.app@gmail.com.'
                 : 'После оплаты вернитесь в приложение, Премиум включится сам. Если не включился, нажмите «Проверить оплату».'}
             </T>
           </View>
@@ -197,20 +195,20 @@ export default function PremiumScreen() {
           <View style={{ gap: 10 }}>
             {!promoOpen ? (
               <Pressable accessibilityRole="button" onPress={() => { setPromoOpen(true); showField(); }} hitSlop={8} style={{ alignSelf: 'center' }} testID="promo-open">
-                <T size={15} tone="accent" weight="medium">{GUMROAD_URL ? 'Есть промокод или ключ покупки?' : 'Есть промокод?'}</T>
+                <T size={15} tone="accent" weight="medium">Есть промокод?</T>
               </Pressable>
             ) : (
               <View style={{ gap: 10, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface }}>
-                <T weight="medium">{GUMROAD_URL ? 'Промокод или ключ покупки' : 'Промокод'}</T>
+                <T weight="medium">Промокод</T>
                 <TextInput
-                  accessibilityLabel={GUMROAD_URL ? 'Промокод или ключ покупки' : 'Промокод'}
+                  accessibilityLabel="Промокод"
                   autoCapitalize="characters"
                   autoCorrect={false}
                   onChangeText={(v) => { setPromo(v); setPromoNote(null); }}
                   onFocus={() => { setKeyboard(true); showField(); }}
                   onBlur={() => setKeyboard(false)}
                   onSubmitEditing={applyPromo}
-                  placeholder={GUMROAD_URL ? 'Код или ключ из письма' : 'Промокод'}
+                  placeholder="Промокод"
                   placeholderTextColor={c.muted}
                   returnKeyType="done"
                   value={promo}
