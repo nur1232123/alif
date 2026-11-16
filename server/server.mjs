@@ -233,11 +233,14 @@ async function gumroadPing(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const secret = url.searchParams.get('secret') ?? '';
   if (!GUMROAD_PING_SECRET || secret.length !== GUMROAD_PING_SECRET.length || !timingSafeEqual(Buffer.from(secret), Buffer.from(GUMROAD_PING_SECRET))) {
+    console.error('Уведомление Gumroad: неверный секрет в адресе');
     return send(res, 403, { error: 'forbidden' });
   }
   const form = new URLSearchParams((await readBody(req)).toString('utf8'));
   const key = form.get('license_key')?.trim() ?? '';
   const email = form.get('email')?.trim() ?? '';
+  // Для разбора проблем: что пришло (без почты и ключа целиком)
+  console.log(`Уведомление Gumroad: товар ${form.get('product_id') === GUMROAD_PRODUCT_ID ? 'наш' : `другой (${form.get('product_id')})`}, ключ ${key ? (LICENSE_RE.test(key) ? 'есть' : 'странный') : 'нет'}, почта ${email ? 'есть' : 'нет'}, тест ${form.get('test') ?? 'нет'}`);
   // Чужой товар или покупка без ключа: просто подтверждаем, чтобы Gumroad не повторял
   if (form.get('product_id') !== GUMROAD_PRODUCT_ID || !LICENSE_RE.test(key) || !email) return send(res, 200, { ok: true, skipped: true });
   try {
@@ -249,6 +252,7 @@ async function gumroadPing(req, res) {
     });
     if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
     const attached = await response.json();
+    console.log(`Уведомление Gumroad: ${attached?.ok ? 'ключ привязан к аккаунту, Премиум включается' : attached?.pending ? 'аккаунта с этой почтой пока нет, ключ ждёт входа' : `ошибка ${attached?.error}`}`);
     if (attached?.ok && attached.user && (await gumroadLicense(key)) === 'active') {
       await grantPremium(String(attached.user), Date.now() + LICENSE_GRACE_MS);
     }
