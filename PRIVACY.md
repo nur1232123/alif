@@ -50,6 +50,15 @@
 
 В приложении нет рекламы, трекеров и сторонней аналитики. Мы не продаём данные и передаём их только сервисам, описанным выше, и только для работы этих функций.
 
+Чтобы понимать, сколько человек занимается и на каких уроках бросают, приложение отправляет в нашу базу (Supabase)
+анонимный счётчик: случайный номер телефона, созданный приложением, и событие — «открыл приложение», «начал или закончил
+урок» (номер урока и процент правильных ответов), «открыл экран Премиума», «задал вопрос учителю». Имени, почты и текста
+вопросов в счётчике нет.
+
+Если вы нажмёте «Сообщить об ошибке» или «Пожаловаться на ответ», мы получим выбранную причину, ваш комментарий,
+задание или ответ учителя, о котором речь, случайный номер телефона и, если вы вошли, номер аккаунта. Это нужно,
+чтобы найти и исправить ошибку.
+
 ## Дети
 
 Приложение не предназначено специально для детей младше 13 лет и не собирает их данные намеренно.
@@ -69,4 +78,4 @@ Voice recordings for pronunciation checks are sent to our server and the speech 
 Questions to the AI tutor are processed by Google Gemini; please do not include personal data.
 Subscriptions are paid via Gumroad on the web or via Google Play / App Store; we never see your card details.
 The Gumroad license key you enter is stored with your account so our server can check the subscription; Premium status is kept by RevenueCat.
-Data controller: Nur Urmatov (individual, Jordan). We do not sell your data and do not show ads. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).
+Data controller: Nur Urmatov (individual, Jordan). An anonymous usage counter (random device ID and events such as app opened or lesson finished, no name or email) and error reports you send are stored in our database to improve the course. We do not sell your data and do not show ads. Contact: [alif.arabic.app@gmail.com](mailto:alif.arabic.app@gmail.com).

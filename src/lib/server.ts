@@ -20,7 +20,7 @@ let deviceId: string | null = null;
 const randomId = () =>
   Array.from({ length: 32 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('').replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-');
 
-async function getDeviceId() {
+export async function getDeviceId() {
   if (deviceId) return deviceId;
   const saved = await AsyncStorage.getItem(DEVICE_KEY).catch(() => null);
   deviceId = saved ?? randomId();

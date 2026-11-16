@@ -12,6 +12,8 @@ import { stopSpeech } from '@/lib/speech';
 import { voiceReady } from '@/lib/voice';
 import { Button, Khatam, ProgressBar, Screen, T } from '@/ui/kit';
 import { useSpeak } from '@/ui/speak';
+import { track } from '@/lib/feedback';
+import { ReportButton, ReportContext } from '@/ui/report';
 import { useBuild, useChoice, useIntro, useMatch, useRead, useTip, type Slots } from '@/ui/tasks';
 import { useColors } from '@/ui/theme';
 
@@ -33,6 +35,7 @@ function Frame({ value, total, slots, testID }: { value: number; total: number; 
         <View style={{ flex: 1 }}>
           <ProgressBar value={value} total={total} thick />
         </View>
+        <ReportButton />
       </View>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
@@ -245,11 +248,17 @@ function Runner({ lesson, numbers }: { lesson: LessonRef | null; numbers?: Numbe
   const [skipped, setSkipped] = useState(0);
 
   useEffect(() => () => stopSpeech(), []);
+  // Анонимный счётчик: начал урок (для статистики, где ученики бросают)
+  const lessonKey = numbers ? `numbers-${numbers}` : (lesson?.id ?? 'practice');
+  useEffect(() => {
+    track('lesson_start', lessonKey);
+  }, [lessonKey, attempt]);
 
   const isExam = lesson?.isExam ?? false;
   const uniqueTotal = new Set(queue.filter(isGraded).map((t) => t.key)).size - skipped;
 
   const finish = (finalScore: number, total = uniqueTotal) => {
+    track('lesson_finish', lessonKey, total > 0 ? Math.round((finalScore / total) * 100) : undefined);
     if (numbers) {
       finishNumbers(numbers, finalScore, total);
       setFinished(true);
@@ -337,15 +346,18 @@ function Runner({ lesson, numbers }: { lesson: LessonRef | null; numbers?: Numbe
     testID: `task-${task.type}`,
   };
   const key = `${attempt}-${index}-${task.key}`;
+  let step;
   switch (task.type) {
-    case 'tip': return <TipStep key={key} {...common} task={task} />;
-    case 'intro': return <IntroStep key={key} {...common} task={task} />;
-    case 'read': return <ReadStep key={key} {...common} task={task} />;
-    case 'match': return <MatchStep key={key} {...common} task={task} />;
-    case 'build': return <BuildStep key={key} {...common} task={task} />;
-    case 'speak': return <SpeakStep key={key} {...common} task={task} onSkip={onSkip} />;
-    default: return <ChoiceStep key={key} {...common} task={task} />;
+    case 'tip': step = <TipStep key={key} {...common} task={task} />; break;
+    case 'intro': step = <IntroStep key={key} {...common} task={task} />; break;
+    case 'read': step = <ReadStep key={key} {...common} task={task} />; break;
+    case 'match': step = <MatchStep key={key} {...common} task={task} />; break;
+    case 'build': step = <BuildStep key={key} {...common} task={task} />; break;
+    case 'speak': step = <SpeakStep key={key} {...common} task={task} onSkip={onSkip} />; break;
+    default: step = <ChoiceStep key={key} {...common} task={task} />;
   }
+  // Флажок «Сообщить об ошибке» отправит, какой урок и какое задание сейчас на экране
+  return <ReportContext.Provider value={{ lessonId: lessonKey, context: { task: JSON.stringify(task).slice(0, 3000), step: index + 1 } }}>{step}</ReportContext.Provider>;
 }
 
 export default function LessonScreen() {

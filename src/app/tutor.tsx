@@ -2,11 +2,13 @@ import { router } from 'expo-router';
 import { type ComponentRef, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '@/lib/feedback';
 import { getLesson } from '@/lib/plan';
 import { FREE_TUTOR_PER_DAY, usePremium } from '@/lib/premium';
 import { useProgress } from '@/lib/progress';
 import { askTutor, TUTOR_ERRORS, TUTOR_LIMIT_TEXT, tutorEnabled, type TutorMessage } from '@/lib/tutor';
 import { T, useSlow, WAKING_TEXT } from '@/ui/kit';
+import { ReportSheet } from '@/ui/report';
 import { fonts, useColors } from '@/ui/theme';
 
 const SUGGESTIONS = ['Чем отличаются ح и ه?', 'Что такое танвин?', 'Когда «аль» не читается?', 'Как сказать «спасибо»?'];
@@ -25,6 +27,8 @@ export default function TutorScreen() {
   const [busy, setBusy] = useState(false);
   const slow = useSlow(busy);
   const [error, setError] = useState<string | null>(null);
+  // Жалоба на ответ учителя: номер ответа в переписке (кнопка обязательна по правилам Google Play для ИИ)
+  const [reportIndex, setReportIndex] = useState<number | null>(null);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const lesson = currentLessonId ? getLesson(currentLessonId) : null;
@@ -38,6 +42,7 @@ export default function TutorScreen() {
     setDraft('');
     setError(null);
     setBusy(true);
+    track('tutor_ask');
     const reply = await askTutor(next, context);
     setBusy(false);
     if (reply.ok) {
@@ -98,8 +103,15 @@ export default function TutorScreen() {
           </T>
         </View>
         {messages.map((m, i) => (
-          <View key={i} style={bubble(m.role === 'user')} testID={m.role === 'user' ? 'msg-user' : 'msg-tutor'}>
-            <T style={{ lineHeight: 23, color: m.role === 'user' ? c.onAccent : c.ink }}>{m.text}</T>
+          <View key={i} style={{ gap: 4, width: '100%', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <View style={bubble(m.role === 'user')} testID={m.role === 'user' ? 'msg-user' : 'msg-tutor'}>
+              <T style={{ lineHeight: 23, color: m.role === 'user' ? c.onAccent : c.ink }}>{m.text}</T>
+            </View>
+            {m.role !== 'user' ? (
+              <Pressable accessibilityRole="button" onPress={() => setReportIndex(i)} hitSlop={8} style={{ alignSelf: 'flex-start', paddingHorizontal: 6 }} testID="tutor-report">
+                <T size={12} tone="muted">Пожаловаться на ответ</T>
+              </Pressable>
+            ) : null}
           </View>
         ))}
         {busy ? (
@@ -163,6 +175,12 @@ export default function TutorScreen() {
           <T size={11} tone="muted">Вопросы отправляются в сервис Google Gemini. Не пишите личные данные. ИИ может ошибаться.</T>
         </View>
       </View>
+      <ReportSheet
+        visible={reportIndex !== null}
+        onClose={() => setReportIndex(null)}
+        kind="tutor"
+        context={reportIndex === null ? undefined : { question: messages[reportIndex - 1]?.text?.slice(0, 1000), answer: messages[reportIndex]?.text?.slice(0, 2000) }}
+      />
     </KeyboardAvoidingView>
   );
 }

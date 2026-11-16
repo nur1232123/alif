@@ -14,6 +14,7 @@ import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
+import { track } from '@/lib/feedback';
 import { refreshVoice } from '@/lib/voice';
 import { useColors } from '@/ui/theme';
 
@@ -56,6 +57,7 @@ export default function RootLayout() {
     // Звук слышен и на iPhone в беззвучном режиме
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     refreshVoice();
+    track('open');
   }, []);
   const [loaded, failed] = useFonts({
     GolosText_400Regular,

@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { STAGES } from '@/data/course';
 import { FREE_STAGES, FREE_TUTOR_PER_DAY, GUMROAD_URL, type PlanId, usePremium, WEB_PAYER } from '@/lib/premium';
+import { track } from '@/lib/feedback';
 import { PROMO_ERRORS, redeemPromo } from '@/lib/promo';
 import { russianDate } from './subscription';
 import { Button, Khatam, T } from '@/ui/kit';
@@ -27,6 +28,7 @@ export default function PremiumScreen() {
   const [busy, setBusy] = useState<'buy' | 'restore' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const plan = plans.find((p) => p.id === chosen) ?? plans[0];
+  useEffect(() => track('premium_view'), []);
   // Промокод: поле раскрывается по нажатию «Есть промокод?»
   const [promoOpen, setPromoOpen] = useState(false);
   const [promo, setPromo] = useState('');
