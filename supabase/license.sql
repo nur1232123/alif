@@ -118,3 +118,67 @@ end;
 $$;
 revoke all on function public.my_licenses() from public, anon;
 grant execute on function public.my_licenses() to authenticated;
+
+-- ===== Подписка без ключа покупки: Gumroad присылает номер подписки, срок продлевается каждым списанием =====
+alter table public.license_bindings add column if not exists ends_at timestamptz;
+alter table public.pending_licenses add column if not exists ends_at timestamptz;
+drop function if exists public.gumroad_attach(text, text, text);
+
+create or replace function public.gumroad_attach(p_secret text, p_email text, p_key text, p_ends_at timestamptz default null)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  expected text;
+  uid uuid;
+  k text := upper(trim(coalesce(p_key, '')));
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  select value into expected from server_secrets where name = 'gumroad_ping';
+  if expected is null or p_secret is distinct from expected then return json_build_object('error', 'secret'); end if;
+  if k = '' or e = '' then return json_build_object('error', 'bad'); end if;
+  select id into uid from auth.users where lower(email) = e limit 1;
+  if uid is null then
+    insert into pending_licenses (license_key, email, ends_at) values (k, e, p_ends_at)
+      on conflict (license_key) do update set email = excluded.email,
+        ends_at = greatest(pending_licenses.ends_at, excluded.ends_at);
+    return json_build_object('pending', true);
+  end if;
+  insert into license_bindings (license_key, user_id, ends_at) values (k, uid, p_ends_at)
+    on conflict (license_key) do update set ends_at = greatest(license_bindings.ends_at, excluded.ends_at);
+  return json_build_object('ok', true, 'user', (select user_id from license_bindings where license_key = k),
+    'ends_at', (select ends_at from license_bindings where license_key = k));
+end;
+$$;
+revoke all on function public.gumroad_attach(text, text, text, timestamptz) from public;
+grant execute on function public.gumroad_attach(text, text, text, timestamptz) to anon, authenticated;
+
+create or replace function public.my_licenses()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  e text := lower(coalesce(auth.email(), ''));
+begin
+  if uid is null then return json_build_object('error', 'auth'); end if;
+  if e <> '' then
+    insert into license_bindings (license_key, user_id, ends_at)
+      select license_key, uid, ends_at from pending_licenses where lower(email) = e
+      on conflict (license_key) do update set ends_at = greatest(license_bindings.ends_at, excluded.ends_at);
+    delete from pending_licenses where lower(email) = e;
+  end if;
+  return (
+    select json_build_object('user', uid,
+      'keys', coalesce(json_agg(license_key order by created_at desc), '[]'::json),
+      'items', coalesce(json_agg(json_build_object('key', license_key, 'ends_at', ends_at) order by created_at desc), '[]'::json))
+    from license_bindings where user_id = uid
+  );
+end;
+$$;
+revoke all on function public.my_licenses() from public, anon;
+grant execute on function public.my_licenses() to authenticated;

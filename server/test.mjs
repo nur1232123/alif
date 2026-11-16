@@ -68,7 +68,7 @@ const azure = createServer((req, res) => {
       attachSeen = { headers: req.headers, body: JSON.parse(Buffer.concat(chunks).toString()) };
       const known = attachSeen.body.p_email === 'nur@example.com';
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(known ? { ok: true, user: 'user-3' } : { pending: true }));
+      res.end(JSON.stringify(known ? { ok: true, user: 'user-3', ends_at: attachSeen.body.p_ends_at } : { pending: true }));
       return;
     }
     if (req.url === '/sb/rest/v1/rpc/bind_license' || req.url === '/sb/rest/v1/rpc/my_licenses') {
@@ -334,7 +334,7 @@ try {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(fields),
   });
-  const sale = { product_id: 'prod-123', email: 'nur@example.com', license_key: 'AAAAAAAA-11111111-22222222-33333333' };
+  const sale = { product_id: 'prod-123', email: 'nur@example.com', license_key: 'AAAAAAAA-11111111-22222222-33333333', recurrence: 'monthly', sale_timestamp: new Date().toISOString() };
   assert.equal((await ping('wrong-secret-12', sale)).status, 403, 'уведомление без секрета');
   rcSeen = null;
   assert.equal((await ping('ping-secret-123', sale)).status, 200, 'уведомление принято');
@@ -346,6 +346,17 @@ try {
   assert.equal((await ping('ping-secret-123', { ...sale, email: 'new@example.com' })).status, 200, 'аккаунта ещё нет');
   assert.equal(rcSeen, null, 'Премиум выдастся, когда ученик войдёт');
   assert.deepEqual(await (await ping('ping-secret-123', { ...sale, product_id: 'other' })).json(), { ok: true, skipped: true }, 'чужой товар');
+  // Без ключа покупки: узнаём по номеру подписки, срок — месяц от списания плюс 3 дня
+  rcSeen = null;
+  const { license_key: _skip, ...noKey } = sale;
+  assert.equal((await ping('ping-secret-123', { ...noKey, subscription_id: 'sub_42' })).status, 200);
+  assert.equal(attachSeen.body.p_key, 'SUB:sub_42', 'покупка по номеру подписки');
+  const subEnd = JSON.parse(rcSeen.body).end_time_ms;
+  assert.ok(Math.abs(subEnd - (Date.now() + 34 * 86400000)) < 60000, 'Премиум на месяц и 3 дня');
+  // Пробный период: до его конца плюс 3 дня
+  await ping('ping-secret-123', { ...noKey, subscription_id: 'sub_43', free_trial_ends_at: new Date(Date.now() + 7 * 86400000).toISOString() });
+  assert.ok(Math.abs(JSON.parse(rcSeen.body).end_time_ms - (Date.now() + 10 * 86400000)) < 60000, 'пробная неделя и 3 дня');
+  assert.deepEqual(await (await ping('ping-secret-123', { ...noKey, subscription_id: 'sub_44', refunded: 'true' })).json(), { ok: true, skipped: 'refunded' }, 'возврат');
 
   // Озвучка роликов: только с ключом проверяющего, потом ZIP со всеми репликами
   assert.equal((await fetch('http://127.0.0.1:9792/voiceover?id=tochki&key=wrong')).status, 403, 'озвучка без ключа');

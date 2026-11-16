@@ -237,26 +237,32 @@ async function gumroadPing(req, res) {
     return send(res, 403, { error: 'forbidden' });
   }
   const form = new URLSearchParams((await readBody(req)).toString('utf8'));
-  const key = form.get('license_key')?.trim() ?? '';
-  const email = form.get('email')?.trim() ?? '';
   // Для разбора проблем: какие поля прислал Gumroad (только названия, без значений)
   console.log(`Уведомление Gumroad, поля: ${[...form.keys()].join(', ')}`);
-  // Для разбора проблем: что пришло (без почты и ключа целиком)
-  console.log(`Уведомление Gumroad: товар ${form.get('product_id') === GUMROAD_PRODUCT_ID ? 'наш' : `другой (${form.get('product_id')})`}, ключ ${key ? (LICENSE_RE.test(key) ? 'есть' : 'странный') : 'нет'}, почта ${email ? 'есть' : 'нет'}, тест ${form.get('test') ?? 'нет'}`);
-  // Чужой товар или покупка без ключа: просто подтверждаем, чтобы Gumroad не повторял
-  if (form.get('product_id') !== GUMROAD_PRODUCT_ID || !LICENSE_RE.test(key) || !email) return send(res, 200, { ok: true, skipped: true });
+  const email = form.get('email')?.trim() ?? '';
+  const license = form.get('license_key')?.trim() ?? '';
+  const subscription = form.get('subscription_id')?.trim() ?? '';
+  // Ключ покупки Gumroad присылает не всегда: тогда покупку узнаём по номеру подписки
+  const key = LICENSE_RE.test(license) ? license.toUpperCase() : subscription ? `SUB:${subscription}` : '';
+  const ours = form.get('product_id') === GUMROAD_PRODUCT_ID;
+  console.log(`Уведомление Gumroad: товар ${ours ? 'наш' : 'другой'}, ${LICENSE_RE.test(license) ? 'ключ покупки' : subscription ? 'номер подписки' : 'ни ключа, ни подписки'}, почта ${email ? 'есть' : 'нет'}, повторное списание ${form.get('is_recurring_charge') ?? 'нет'}, тест ${form.get('test') ?? 'нет'}`);
+  // Чужой товар, покупка без подписки или возврат: просто подтверждаем, чтобы Gumroad не повторял
+  if (!ours || !key || !email) return send(res, 200, { ok: true, skipped: true });
+  if (form.get('refunded') === 'true' || form.get('disputed') === 'true') return send(res, 200, { ok: true, skipped: 'refunded' });
+  const endsAt = paidUntil(form);
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/gumroad_attach`, {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_secret: GUMROAD_PING_SECRET, p_email: email, p_key: key.toUpperCase() }),
+      body: JSON.stringify({ p_secret: GUMROAD_PING_SECRET, p_email: email, p_key: key, p_ends_at: new Date(endsAt).toISOString() }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`Supabase ${response.status} ${(await response.text()).slice(0, 200)}`);
     const attached = await response.json();
-    console.log(`Уведомление Gumroad: ${attached?.ok ? 'ключ привязан к аккаунту, Премиум включается' : attached?.pending ? 'аккаунта с этой почтой пока нет, ключ ждёт входа' : `ошибка ${attached?.error}`}`);
-    if (attached?.ok && attached.user && (await gumroadLicense(key)) === 'active') {
-      await grantPremium(String(attached.user), Date.now() + LICENSE_GRACE_MS);
+    console.log(`Уведомление Gumroad: ${attached?.ok ? 'покупка привязана к аккаунту, Премиум включается' : attached?.pending ? 'аккаунта с этой почтой пока нет, покупка ждёт входа' : `ошибка ${attached?.error}`}`);
+    if (attached?.ok && attached.user) {
+      const until = Math.max(endsAt, Date.parse(attached.ends_at ?? '') || 0);
+      if (until > Date.now()) await grantPremium(String(attached.user), until);
     }
     return send(res, 200, { ok: true });
   } catch (error) {
@@ -264,6 +270,20 @@ async function gumroadPing(req, res) {
     console.error(`Уведомление Gumroad: ${error.message}`);
     return send(res, 500, { error: 'retry' });
   }
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+const PERIOD_DAYS = { monthly: 31, quarterly: 92, biannually: 183, yearly: 366, every_two_years: 731 };
+
+/**
+ * До какого момента оплачено: пробный период (если Gumroad прислал его конец) или период подписки
+ * от даты списания, плюс 3 дня запаса. Следующее списание пришлёт новое уведомление и продлит срок
+ */
+function paidUntil(form) {
+  const trialEnd = Date.parse(form.get('free_trial_ends_at') ?? '');
+  if (trialEnd) return trialEnd + 3 * DAY_MS;
+  const start = Date.parse(form.get('sale_timestamp') ?? '') || Date.now();
+  return start + ((PERIOD_DAYS[form.get('recurrence') ?? ''] ?? 31) + 3) * DAY_MS;
 }
 
 /** Приложение при запуске: продлить Премиум по сохранённым ключам, если подписка ещё активна */
@@ -275,8 +295,15 @@ async function refreshLicenses(req, res, ip, device) {
   try {
     const mine = await supabaseRpc('my_licenses', token);
     if (!mine.auth) return send(res, 401, { error: 'auth' });
-    for (const key of (mine.data?.keys ?? []).slice(0, 5)) {
-      if ((await gumroadLicense(String(key))) === 'active') {
+    const items = mine.data?.items ?? (mine.data?.keys ?? []).map((key) => ({ key, ends_at: null }));
+    for (const { key, ends_at: endsAt } of items.slice(0, 5)) {
+      // Подписка без ключа: срок известен из уведомлений Gumroad
+      const until = Date.parse(endsAt ?? '') || 0;
+      if (until > Date.now()) {
+        await grantPremium(String(mine.data.user), until);
+        return send(res, 200, { ok: true });
+      }
+      if (LICENSE_RE.test(String(key)) && (await gumroadLicense(String(key))) === 'active') {
         await grantPremium(String(mine.data.user), Date.now() + LICENSE_GRACE_MS);
         return send(res, 200, { ok: true });
       }
