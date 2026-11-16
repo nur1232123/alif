@@ -16,6 +16,7 @@ import { ProgressProvider, useProgress } from '@/lib/progress';
 import { setSfxEnabled } from '@/lib/sfx';
 import { track } from '@/lib/feedback';
 import { refreshVoice } from '@/lib/voice';
+import { useScheme } from '@/ui/scheme';
 import { useColors } from '@/ui/theme';
 
 function Routes() {
@@ -52,6 +53,7 @@ function Routes() {
 
 export default function RootLayout() {
   const c = useColors();
+  const scheme = useScheme();
 
   useEffect(() => {
     // Звук слышен и на iPhone в беззвучном режиме
@@ -74,7 +76,7 @@ export default function RootLayout() {
       <ProgressProvider>
         <AccountProvider>
           <PremiumProvider>
-            <StatusBar style="auto" />
+            <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
             <Routes />
           </PremiumProvider>
         </AccountProvider>

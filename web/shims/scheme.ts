@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { useThemePref } from '../../src/ui/theme-pref';
 
 // Страница следует теме просмотрщика: явный выбор в data-theme важнее системной настройки
 const query = () => window.matchMedia('(prefers-color-scheme: dark)');
@@ -21,5 +22,7 @@ function current() {
 }
 
 export function useScheme() {
-  return useSyncExternalStore(subscribe, current);
+  const system = useSyncExternalStore(subscribe, current);
+  const pref = useThemePref();
+  return pref === 'system' ? system : pref;
 }

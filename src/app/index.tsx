@@ -16,6 +16,7 @@ import { TEST_MODE } from '@/lib/server';
 import { say, sayAll } from '@/lib/speech';
 import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
+import { setThemePref, useThemePref } from '@/ui/theme-pref';
 
 const ROW = 90;
 const BANNER = 104;
@@ -524,6 +525,7 @@ const HOURS = [8, 12, 17, 19, 21];
 
 function SettingsBlock() {
   const c = useColors();
+  const themePref = useThemePref();
   const { progress, updateSettings } = useProgress();
   const { settings } = progress;
   const [notice, setNotice] = useState<string | null>(null);
@@ -578,6 +580,17 @@ function SettingsBlock() {
           <Switch value={settings.allOpen} onValueChange={(v) => updateSettings({ allOpen: v })} trackColor={{ true: c.accent, false: c.line }} testID="all-open-switch" />
         </View>
       ) : null}
+      <T style={{ marginTop: 8 }}>Тема</T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }} accessibilityRole="radiogroup">
+        {([['system', 'Как в телефоне'], ['light', 'Светлая'], ['dark', 'Тёмная']] as const).map(([value, label]) => {
+          const active = themePref === value;
+          return (
+            <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: active }} onPress={() => setThemePref(value)} style={chip(active)} testID={`theme-${value}`}>
+              <T weight={active ? 'bold' : 'regular'}>{label}</T>
+            </Pressable>
+          );
+        })}
+      </View>
       <View style={row}>
         <T style={{ flex: 1 }}>Звуки ответов</T>
         <Switch value={settings.sounds} onValueChange={(v) => updateSettings({ sounds: v })} trackColor={{ true: c.accent, false: c.line }} testID="sounds-switch" />
