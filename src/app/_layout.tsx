@@ -7,12 +7,13 @@ import { setAudioModeAsync } from 'expo-audio';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { ProgressProvider, useProgress } from '@/lib/progress';
+import { loadSession } from '@/lib/session';
 import { setSfxEnabled } from '@/lib/sfx';
 import { track } from '@/lib/feedback';
 import { refreshVoice } from '@/lib/voice';
@@ -22,12 +23,17 @@ import { useColors } from '@/ui/theme';
 function Routes() {
   const c = useColors();
   const { ready, progress } = useProgress();
+  // Незаконченный урок читается до главной: она сразу предложит продолжить
+  const [sessionReady, setSessionReady] = useState(false);
+  useEffect(() => {
+    loadSession().finally(() => setSessionReady(true));
+  }, []);
 
   useEffect(() => {
     setSfxEnabled(progress.settings.sounds);
   }, [progress.settings.sounds]);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!ready || !sessionReady) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
 
   return (
     <Stack

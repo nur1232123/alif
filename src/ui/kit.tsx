@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { findArabicVoice, say } from '@/lib/speech';
 import { fonts, useColors } from './theme';
@@ -117,30 +117,50 @@ export function Button({ label, onPress, kind = 'primary', tone, disabled, testI
   const c = useColors();
   const primary = kind === 'primary';
   const fill = tone ? c[tone] : c.accent;
+  // Кнопка живая: при нажатии чуть проседает и пружинит обратно
+  const scale = useState(() => new Animated.Value(1))[0];
+  const spring = (to: number) =>
+    Animated.spring(scale, { toValue: to, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: to === 1 ? 12 : 0 }).start();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      testID={testID}
-      style={({ pressed }) => ({
-        minHeight: 52,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: primary ? fill : c.surface,
-        borderWidth: primary ? 0 : 1.5,
-        borderColor: c.line,
-        boxShadow: primary && !disabled && !pressed ? c.lift : undefined,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-        opacity: disabled ? 0.4 : 1,
-      })}
-    >
-      <Text style={{ color: primary ? c.onAccent : c.ink, fontFamily: fonts.bold, fontSize: 16, textAlign: 'center' }}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => spring(0.95)}
+        onPressOut={() => spring(1)}
+        testID={testID}
+        style={({ pressed }) => ({
+          minHeight: 52,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderRadius: 16,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: primary ? fill : c.surface,
+          borderWidth: primary ? 0 : 1.5,
+          borderColor: c.line,
+          boxShadow: primary && !disabled && !pressed ? c.lift : undefined,
+          opacity: disabled ? 0.4 : 1,
+        })}
+      >
+        <Text style={{ color: primary ? c.onAccent : c.ink, fontFamily: fonts.bold, fontSize: 16, textAlign: 'center' }}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/** Появление снизу с затуханием: для нового задания и окна «С возвращением» */
+export function Appear({ children, delay = 0, from = 18, axis = 'y', style }: { children: ReactNode; delay?: number; from?: number; axis?: 'x' | 'y'; style?: ViewStyle }) {
+  const t = useState(() => new Animated.Value(0))[0];
+  useEffect(() => {
+    Animated.timing(t, { toValue: 1, duration: 360, delay, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [t, delay]);
+  return (
+    <Animated.View style={[style, { opacity: t, transform: [axis === 'x' ? { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) } : { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }]}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -250,13 +270,19 @@ export function Khatam({ size, fill, children }: { size: number; fill: string; c
 export function ProgressBar({ value, total, thick }: { value: number; total: number; thick?: boolean }) {
   // Толстая полоса в уроке: 10 пикселей, тонкая в профиле: 6
   const c = useColors();
+  // В уроке полоса плавно дорастает от прошлого задания до нового
+  const start = thick ? Math.max(0, value - 1) : value;
+  const w = useState(() => new Animated.Value(total ? start / total : 0))[0];
+  useEffect(() => {
+    Animated.timing(w, { toValue: total ? value / total : 0, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [w, value, total]);
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: total, now: value }}
       style={{ height: thick ? 10 : 6, borderRadius: thick ? 5 : 3, backgroundColor: c.line, overflow: 'hidden' }}
     >
-      <View style={{ height: '100%', width: `${(value / total) * 100}%`, backgroundColor: c.accent }} />
+      <Animated.View style={{ height: '100%', width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), backgroundColor: c.accent }} />
     </View>
   );
 }

@@ -17,6 +17,14 @@ const AsyncStorage = {
       // Значение уже в памяти
     }
   },
+  async removeItem(key: string) {
+    memory.delete(key);
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Уже убрано из памяти
+    }
+  },
 };
 
 export default AsyncStorage;

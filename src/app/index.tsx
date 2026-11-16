@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALL_WEEKS, getStage } from '@/data/course';
 import { LETTERS } from '@/data/letters';
@@ -13,8 +13,9 @@ import { accountEnabled, useAccount } from '@/lib/account';
 import { NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId } from '@/lib/numbers';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
+import { getSession } from '@/lib/session';
 import { say, sayAll } from '@/lib/speech';
-import { Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
+import { Appear, Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
 import { setThemePref, useThemePref } from '@/ui/theme-pref';
 
@@ -773,6 +774,116 @@ function TabButton({ label, active, onPress, id, kind }: { label: string; active
   );
 }
 
+// «С возвращением» показывается один раз за запуск приложения
+let welcomeShown = false;
+
+/** Экран при входе: звезда, приветствие и кнопка продолжить с того же места */
+function WelcomeBack() {
+  const c = useColors();
+  const { progress, isNewUser, currentLessonId } = useProgress();
+  const { isPremium } = usePremium();
+  const [session] = useState(getSession);
+  const next = currentLessonId ? getLesson(currentLessonId) : null;
+  const nextOk = !!next && !(isPaidWeek(next.week) && !isPremium);
+  const [open, setOpen] = useState(
+    () => !welcomeShown && !isNewUser && !!progress.name && (!!session || (Object.keys(progress.done).length > 0 && nextOk)),
+  );
+  const fade = useState(() => new Animated.Value(0))[0];
+  const pop = useState(() => new Animated.Value(0))[0];
+  const star = useState(() => new Animated.Value(0))[0];
+  const native = Platform.OS !== 'web';
+
+  useEffect(() => {
+    if (!open) return;
+    welcomeShown = true;
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: native }),
+      Animated.spring(pop, { toValue: 1, speed: 14, bounciness: 9, useNativeDriver: native }),
+      Animated.sequence([Animated.delay(120), Animated.spring(star, { toValue: 1, speed: 8, bounciness: 14, useNativeDriver: native })]),
+    ]).start();
+  }, [open, fade, pop, star, native]);
+
+  if (!open) return null;
+
+  const close = (then?: () => void) => {
+    Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: native }).start(() => {
+      setOpen(false);
+      then?.();
+    });
+  };
+  const go = () => close(() => router.push(`/lesson/${session ? session.key : currentLessonId}`));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade, alignItems: 'center', justifyContent: 'center', padding: 20 }]} testID="welcome-back">
+      <Pressable accessibilityLabel="Закрыть" onPress={() => close()} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.45)' }]} />
+      <Animated.View
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          alignItems: 'center',
+          gap: 14,
+          padding: 24,
+          paddingTop: 30,
+          borderRadius: 28,
+          backgroundColor: c.bg,
+          transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }],
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Закрыть и перейти на главную"
+          hitSlop={12}
+          onPress={() => close()}
+          style={{ position: 'absolute', top: 14, right: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+          testID="welcome-close"
+        >
+          <T size={22} weight="bold" tone="muted">✕</T>
+        </Pressable>
+        <Animated.View
+          style={{
+            transform: [
+              { scale: star },
+              { rotate: star.interpolate({ inputRange: [0, 1], outputRange: ['-135deg', '0deg'] }) },
+            ],
+          }}
+        >
+          <Khatam size={84} fill={c.gold}>
+            <Ar size={34} bold style={{ color: '#fff', lineHeight: 52 }}>ا</Ar>
+          </Khatam>
+        </Animated.View>
+        <Appear delay={220}>
+          <T size={22} weight="bold" style={{ textAlign: 'center', lineHeight: 28 }} testID="welcome-title">
+            С возвращением, {progress.name}!
+          </T>
+        </Appear>
+        <Appear delay={320} style={{ alignSelf: 'stretch', gap: 12 }}>
+          <T tone="muted" style={{ textAlign: 'center', lineHeight: 22 }}>
+            {session ? 'Продолжим с того же места?' : 'Продолжим? Следующий урок:'}
+          </T>
+          {/* Название урока отдельной строкой: в нём бывают арабские буквы, в кавычках они путаются */}
+          <View style={{ gap: 10, padding: 14, borderRadius: 18, backgroundColor: c.soft }}>
+            <T size={17} weight="bold" style={{ textAlign: 'center', lineHeight: 24 }} testID="welcome-lesson">
+              {session ? session.title : next?.title}
+            </T>
+            {session ? (
+              <>
+                <ProgressBar value={session.index} total={session.queue.length} />
+                <T size={14} tone="muted" style={{ textAlign: 'center' }} testID="welcome-step">
+                  Задание {session.index + 1} из {session.queue.length}
+                </T>
+              </>
+            ) : null}
+          </View>
+        </Appear>
+        <Appear delay={420} style={{ alignSelf: 'stretch', gap: 10 }}>
+          <Button label="Продолжить" onPress={go} testID="welcome-continue" />
+          <Button label="На главную" kind="quiet" onPress={() => close()} testID="welcome-home" />
+        </Appear>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
 export default function Home() {
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -803,6 +914,7 @@ export default function Home() {
           <TabButton id="tab-profile" kind="profile" label="Профиль" active={tab === 'profile'} onPress={() => setTab('profile')} />
         </View>
       </View>
+      <WelcomeBack />
     </View>
   );
 }

@@ -10,9 +10,10 @@ import { isPaidWeek, usePremium } from '@/lib/premium';
 import { dayKey, useProgress, type FinishResult } from '@/lib/progress';
 import { stopSpeech } from '@/lib/speech';
 import { voiceReady } from '@/lib/voice';
-import { Button, Khatam, ProgressBar, Screen, T } from '@/ui/kit';
+import { Appear, Button, Khatam, ProgressBar, Screen, T } from '@/ui/kit';
 import { useSpeak } from '@/ui/speak';
 import { track } from '@/lib/feedback';
+import { clearSession, getSession, saveSession } from '@/lib/session';
 import { ReportButton, ReportContext } from '@/ui/report';
 import { useBuild, useChoice, useIntro, useMatch, useRead, useTip, type Slots } from '@/ui/tasks';
 import { useColors } from '@/ui/theme';
@@ -41,7 +42,8 @@ function Frame({ value, total, slots, testID }: { value: number; total: number; 
         contentContainerStyle={{ flexGrow: 1, width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
         keyboardShouldPersistTaps="handled"
       >
-        {slots.body}
+        {/* Новое задание выезжает справа: видно, что урок движется вперёд */}
+        <Appear axis="x" from={28} style={{ flexGrow: 1 }}>{slots.body}</Appear>
       </ScrollView>
       <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line, overflow: 'hidden' }}>
         <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>{slots.footer}</View>
@@ -237,19 +239,30 @@ function Runner({ lesson, numbers }: { lesson: LessonRef | null; numbers?: Numbe
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lesson?.id, numbers, attempt],
   );
-  const [queue, setQueue] = useState<Task[]>(initial);
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [mistakes, setMistakes] = useState(0);
-  const [missed, setMissed] = useState<string[]>([]);
+  const lessonKey = numbers ? numbersLessonId(numbers) : (lesson?.id ?? 'practice');
+  // Ученик вышел посреди урока: продолжаем с того же задания
+  const [resume] = useState(() => {
+    const s = getSession();
+    return s && s.key === lessonKey ? s : null;
+  });
+  const [queue, setQueue] = useState<Task[]>(resume?.queue ?? initial);
+  const [index, setIndex] = useState(resume?.index ?? 0);
+  const [score, setScore] = useState(resume?.score ?? 0);
+  const [mistakes, setMistakes] = useState(resume?.mistakes ?? 0);
+  const [missed, setMissed] = useState<string[]>(resume?.missed ?? []);
   const [failed, setFailed] = useState(false);
   const [result, setResult] = useState<FinishResult | null>(null);
   const [finished, setFinished] = useState(false);
-  const [skipped, setSkipped] = useState(0);
+  const [skipped, setSkipped] = useState(resume?.skipped ?? 0);
 
   useEffect(() => () => stopSpeech(), []);
+  // Каждое пройденное задание запоминается: если выйти, урок продолжится отсюда
+  const title = numbers ? 'Учим цифры' : (lesson?.title ?? 'Тренировка');
+  useEffect(() => {
+    if (finished || failed) return;
+    saveSession({ key: lessonKey, title, queue, index, score, mistakes, missed, skipped });
+  }, [lessonKey, title, queue, index, score, mistakes, missed, skipped, finished, failed]);
   // Анонимный счётчик: начал урок (для статистики, где ученики бросают)
-  const lessonKey = numbers ? `numbers-${numbers}` : (lesson?.id ?? 'practice');
   useEffect(() => {
     track('lesson_start', lessonKey);
   }, [lessonKey, attempt]);
@@ -258,6 +271,7 @@ function Runner({ lesson, numbers }: { lesson: LessonRef | null; numbers?: Numbe
   const uniqueTotal = new Set(queue.filter(isGraded).map((t) => t.key)).size - skipped;
 
   const finish = (finalScore: number, total = uniqueTotal) => {
+    clearSession(lessonKey);
     track('lesson_finish', lessonKey, total > 0 ? Math.round((finalScore / total) * 100) : undefined);
     if (numbers) {
       finishNumbers(numbers, finalScore, total);

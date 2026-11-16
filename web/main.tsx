@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TextInput, View } from 'react-native';
 import Home from '@/app/index';
@@ -11,6 +11,7 @@ import Welcome from '@/app/welcome';
 import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
+import { loadSession } from '@/lib/session';
 import { setSfxEnabled } from '@/lib/sfx';
 import { Button, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -61,10 +62,15 @@ slots.homeFooter = PreviewTools;
 function Routes() {
   const c = useColors();
   const { ready, progress } = useProgress();
+  // Как в приложении: незаконченный урок читается до главной
+  const [sessionReady, setSessionReady] = useState(false);
+  useEffect(() => {
+    loadSession().finally(() => setSessionReady(true));
+  }, []);
   const path = usePath();
   setSfxEnabled(progress.settings.sounds);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!ready || !sessionReady) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   // Адрес вида /account?next=premium: параметры после «?» передаются экрану, как в Expo Router
   const [pathname, query = ''] = path.split('?');
   const params = Object.fromEntries(new URLSearchParams(query));
