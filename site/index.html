@@ -27,6 +27,7 @@
     <nav aria-label="Разделы">
       <a href="#course">Курс</a>
       <a href="#prices">Цены</a>
+      <a href="#reviews">Отзывы</a>
       <a href="#faq">Вопросы</a>
       <a href="#en" lang="en">English</a>
     </nav>
@@ -175,6 +176,35 @@
     </div>
   </section>
 
+  <section class="reviews" id="reviews">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Отзывы</h2>
+        <p class="lead">Что говорят те, кто уже учит арабский с «Алифом». Попробовали приложение? Расскажите, что понравилось и что улучшить.</p>
+      </div>
+      <div class="rev-grid">
+        <div class="rev-list" id="revList" aria-live="polite">
+          <p class="muted" id="revEmpty">Загружаю отзывы…</p>
+        </div>
+        <form class="rev-form" id="revForm" novalidate>
+          <h3>Оставить отзыв</h3>
+          <fieldset class="stars" aria-label="Оценка">
+            <input type="radio" name="rating" id="r5" value="5" checked><label for="r5" title="5 из 5">★</label>
+            <input type="radio" name="rating" id="r4" value="4"><label for="r4" title="4 из 5">★</label>
+            <input type="radio" name="rating" id="r3" value="3"><label for="r3" title="3 из 5">★</label>
+            <input type="radio" name="rating" id="r2" value="2"><label for="r2" title="2 из 5">★</label>
+            <input type="radio" name="rating" id="r1" value="1"><label for="r1" title="1 из 5">★</label>
+          </fieldset>
+          <label class="field">Имя<input name="name" maxlength="40" autocomplete="given-name" required></label>
+          <label class="field">Отзыв<textarea name="body" maxlength="600" rows="4" required></textarea></label>
+          <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-main" type="submit" id="revSend">Отправить отзыв</button>
+          <p class="note" id="revNote">Отзыв появится на сайте после проверки.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
   <section id="faq">
     <div class="wrap">
       <div class="section-head">
@@ -286,6 +316,64 @@
 <script>
   // Почта поддержки: впишите адрес, и в подвале появится ссылка «Написать нам»
   const SUPPORT_EMAIL = 'alif.arabic.app@gmail.com';
+
+  // Отзывы: хранятся в базе Supabase, на сайте видны только проверенные
+  const SB_URL = 'https://zbydiisxzylwcexikezl.supabase.co/rest/v1/reviews';
+  const SB_KEY = 'sb_publishable_rfK3fK3SNoCcStGCMDN4wQ_ihLc_AQO';
+  const revList = document.getElementById('revList');
+  const revEmpty = document.getElementById('revEmpty');
+  const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const fmtDate = (iso) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+  fetch(`${SB_URL}?select=name,rating,body,created_at&order=created_at.desc&limit=30`, { headers: { apikey: SB_KEY } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then((rows) => {
+      if (!rows.length) { revEmpty.textContent = 'Пока отзывов нет. Будьте первым!'; return; }
+      revEmpty.remove();
+      for (const row of rows) {
+        const card = document.createElement('article');
+        card.className = 'rev';
+        const stars = document.createElement('div');
+        stars.className = 'rev-stars';
+        stars.setAttribute('aria-label', `${row.rating} из 5`);
+        stars.textContent = '★'.repeat(row.rating) + '☆'.repeat(5 - row.rating);
+        const body = document.createElement('p');
+        body.textContent = row.body;
+        const who = document.createElement('p');
+        who.className = 'rev-who';
+        who.textContent = `${row.name}, ${fmtDate(row.created_at)}`;
+        card.append(stars, body, who);
+        revList.append(card);
+      }
+    })
+    .catch(() => { revEmpty.textContent = 'Не удалось загрузить отзывы. Обновите страницу.'; });
+
+  const revForm = document.getElementById('revForm');
+  const revNote = document.getElementById('revNote');
+  const revSend = document.getElementById('revSend');
+  revForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(revForm);
+    if (f.get('website')) return; // поле-ловушка для ботов
+    const name = String(f.get('name') || '').trim();
+    const body = String(f.get('body') || '').trim();
+    if (!name || body.length < 3) { revNote.textContent = 'Напишите имя и пару слов о приложении.'; revNote.className = 'note bad'; return; }
+    revSend.disabled = true;
+    revNote.className = 'note'; revNote.textContent = 'Отправляю…';
+    try {
+      const r = await fetch(SB_URL, {
+        method: 'POST',
+        headers: { apikey: SB_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ name, rating: Number(f.get('rating')), body }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      revForm.reset();
+      revNote.className = 'note good'; revNote.textContent = 'Спасибо! Отзыв появится на сайте после проверки.';
+    } catch {
+      revNote.className = 'note bad'; revNote.textContent = 'Не получилось отправить. Попробуйте ещё раз чуть позже.';
+    } finally {
+      revSend.disabled = false;
+    }
+  });
   const mail = document.querySelector('[data-mail]');
   if (SUPPORT_EMAIL) { mail.href = 'mailto:' + SUPPORT_EMAIL; mail.hidden = false; }
 

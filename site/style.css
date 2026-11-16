@@ -211,6 +211,30 @@ section { padding: clamp(56px, 9vw, 104px) 0; }
 .btn-gold:hover { background: color-mix(in srgb, var(--gold) 88%, white); }
 .small { font-size: 14px; }
 
+/* Отзывы */
+.reviews { background: var(--surface); border-block: 1px solid var(--line); }
+.rev-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: clamp(24px, 4vw, 48px); align-items: start; }
+@media (max-width: 860px) { .rev-grid { grid-template-columns: 1fr; } }
+.rev-list { display: grid; gap: 14px; }
+.rev { padding: 20px 22px; border-radius: 20px; border: 1px solid var(--line); background: var(--bg); display: grid; gap: 8px; }
+.rev-stars { color: var(--gold); letter-spacing: 2px; font-size: 20px; }
+.rev p { margin: 0; }
+.rev-who { font-size: 14px; color: var(--muted); }
+.rev-form { display: grid; gap: 14px; padding: clamp(20px, 3vw, 28px); border-radius: 24px; border: 1.5px solid var(--line); background: var(--bg); }
+.field { display: grid; gap: 6px; font-size: 15px; font-weight: 500; }
+.field input, .field textarea { font: 400 17px/1.4 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; resize: vertical; }
+.field input:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; }
+.stars { border: 0; padding: 0; margin: 0; display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 4px; }
+.stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.stars label { font-size: 36px; line-height: 1; color: var(--line); cursor: pointer; padding: 2px; }
+.stars input:checked ~ label, .stars label:hover, .stars label:hover ~ label { color: var(--gold); }
+.stars input:focus-visible + label { outline: 3px solid var(--gold); border-radius: 6px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.note.good { color: var(--accent); }
+.note.bad { color: #C0392B; }
+.rev-form .btn { justify-self: start; }
+.rev-form .btn:disabled { opacity: .6; cursor: default; }
+
 /* Вопросы */
 .faq { display: grid; gap: 10px; max-width: 780px; }
 .faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
