@@ -59,3 +59,7 @@ end;
 $$;
 drop trigger if exists reviews_limit on public.reviews;
 create trigger reviews_limit before insert on public.reviews for each row execute function public.reviews_limit();
+
+-- Анонимный счётчик сайта (миграция site_visits): посещения и нажатия «Скачать»,
+-- без IP, имён и постоянного номера; tz_country переводит часовой пояс в страну.
+-- Полный текст применён через Supabase: таблицы site_visits, tz_country, триггер site_visits_limit.
