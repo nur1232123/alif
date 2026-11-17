@@ -35,10 +35,15 @@ jobs:
           lines = json.load(open(f"scripts/voiceover/{os.environ['ID']}.json", encoding="utf-8"))
           model = Model(model_name="vosk-model-tts-ru-0.9-multi")
           synth = Synth(model)
+          def clean(t):
+              # Vosk не знает многоточие и кавычки; ударение ставится плюсом перед гласной
+              for a, b in [("…", ","), ("«", ""), ("»", ""), ("—", ","), ("Алиф", "Ал+иф")]:
+                  t = t.replace(a, b)
+              return t
           for sp in range(8):
               try:
                   for i, text in enumerate(lines, 1):
-                      synth.synth(text, f"out/vosk{sp}-{i:02d}.wav", speaker_id=sp)
+                      synth.synth(clean(text), f"out/vosk{sp}-{i:02d}.wav", speaker_id=sp)
               except Exception as e:
                   print("голос", sp, "нет:", e)
                   break
