@@ -22,7 +22,23 @@ export const VOICEOVERS = {
       'Приложение «Алиф» — арабский с первой буквы. Очень скоро на Android, подпишись, чтобы не пропустить!',
     ],
   },
+  // Серия «фенёк врывается»: ученик ошибается, фенёк объясняет. У каждой реплики свой голос
+  sprava: {
+    voice: 'Puck',
+    style: 'Say in Russian, as a cheerful, overconfident young student in a funny cartoon. Pronounce single letters as their sounds, not as letter names',
+    lines: [
+      'Так, арабский — это легко. Читаю: б… а… т… к. Батак!',
+      { text: 'Стоп-стоп-стоп! Ты читаешь задом наперёд!', voice: 'Fenrir', style: 'Say in Russian, fast and loud, as a sassy, cheeky cartoon fox who bursts in to stop a mistake' },
+      { text: 'В арабском читают справа налево. Смотри: к… и… т… а… б. Китаб — книга.', voice: 'Fenrir', style: 'Say in Russian, as a sassy, quick cartoon fox explaining something obvious, slightly smug. Pronounce single letters as their sounds, not as letter names' },
+      'Так вот почему у них книги открываются с другой стороны!',
+      { text: 'Именно. Ещё раз прочитаешь слева — я вернусь.', voice: 'Fenrir', style: 'Say in Russian, slowly and playfully threatening, as a cheeky cartoon fox squinting at the viewer' },
+      { text: 'Учи арабский правильно — приложение «Алиф», ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+    ],
+  },
 };
+
+/** Реплика бывает строкой или объектом со своим голосом */
+const lineText = (l) => (typeof l === 'string' ? l : l.text);
 
 const MODELS = (process.env.GEMINI_TTS_MODEL ?? 'gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts').split(',').map((m) => m.trim()).filter(Boolean);
 const ttsUrl = (model) => process.env.GEMINI_TTS_URL ?? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -117,11 +133,11 @@ export function voiceoverJob(id, key, retry = false) {
     (async () => {
       try {
         for (const [i, line] of script.lines.entries()) {
-          const audio = await speak(key, line, script.voice, script.style);
+          const audio = await speak(key, lineText(line), line.voice ?? script.voice, line.style ?? script.style);
           job.files.push({ name: `${String(i + 1).padStart(2, '0')}.wav`, data: audio });
           job.done = i + 1;
         }
-        job.files.push({ name: 'lines.txt', data: Buffer.from(script.lines.map((l, i) => `${String(i + 1).padStart(2, '0')} ${l}`).join('\n') + '\n') });
+        job.files.push({ name: 'lines.txt', data: Buffer.from(script.lines.map((l, i) => `${String(i + 1).padStart(2, '0')} ${lineText(l)}`).join('\n') + '\n') });
         job.zip = zip(job.files);
         job.state = 'done';
       } catch (error) {
