@@ -44,6 +44,19 @@ jobs:
                   subprocess.run(["python", "-m", "piper", "-m", f"voices/{v}.onnx", "-f", out, "--", text], check=True)
           PY
           cp voices/*-MODEL_CARD.txt out/ || true
+      - name: Распознать озвучку обратно (проверка и тайминг слов)
+        run: |
+          pip install faster-whisper==1.1.1
+          python - <<'PY'
+          import glob, json
+          from faster_whisper import WhisperModel
+          m = WhisperModel("small", device="cpu", compute_type="int8")
+          res = {}
+          for f in sorted(glob.glob("out/*.wav")):
+              segs, _ = m.transcribe(f, language="ru", word_timestamps=True)
+              res[f.split("/")[-1]] = [{"w": w.word, "a": round(w.start, 2), "b": round(w.end, 2)} for s in segs for w in s.words]
+          json.dump(res, open("out/words.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          PY
           ls -la out
       - name: Положить озвучку в ветку voiceover-out
         env:
@@ -53,6 +66,6 @@ jobs:
           git init -q -b voiceover-out
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          mkdir -p "$ID" && mv *.wav *.txt "$ID"/ 2>/dev/null || true
+          mkdir -p "$ID" && mv *.wav *.txt *.json "$ID"/ 2>/dev/null || true
           git add -A && git commit -qm "Озвучка $ID"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" voiceover-out
