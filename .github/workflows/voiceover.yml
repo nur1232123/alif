@@ -1,12 +1,15 @@
 name: Озвучка ролика (Piper)
 # Озвучивает реплики из scripts/voiceover/<id>.json открытыми голосами Piper.
-# Без ключей: голоса скачиваются с Hugging Face, результат — артефакт сборки
+# Без ключей: голоса скачиваются с Hugging Face, результат кладётся в ветку voiceover-out.
+# Голоса dmitri и denis — на данных с лицензией CC0, их можно использовать в рекламе
 on:
   workflow_dispatch:
     inputs:
       id:
         description: Имя файла в scripts/voiceover без .json
         required: true
+permissions:
+  contents: write
 jobs:
   speak:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
         run: |
           pip install piper-tts==1.3.0
           mkdir -p voices
-          for v in dmitri denis ruslan irina; do
+          for v in dmitri denis; do
             base="https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/$v/medium"
             curl -sSfL -o "voices/$v.onnx" "$base/ru_RU-$v-medium.onnx"
             curl -sSfL -o "voices/$v.onnx.json" "$base/ru_RU-$v-medium.onnx.json"
@@ -35,15 +38,21 @@ jobs:
           python - <<'PY'
           import json, os, subprocess
           lines = json.load(open(f"scripts/voiceover/{os.environ['ID']}.json", encoding="utf-8"))
-          for v in ["dmitri", "denis", "ruslan", "irina"]:
+          for v in ["dmitri", "denis"]:
               for i, text in enumerate(lines, 1):
                   out = f"out/{v}-{i:02d}.wav"
                   subprocess.run(["python", "-m", "piper", "-m", f"voices/{v}.onnx", "-f", out, "--", text], check=True)
           PY
           cp voices/*-MODEL_CARD.txt out/ || true
           ls -la out
-      - uses: actions/upload-artifact@v4
-        with:
-          name: voiceover-${{ inputs.id }}
-          path: out
-          retention-days: 7
+      - name: Положить озвучку в ветку voiceover-out
+        env:
+          ID: ${{ inputs.id }}
+        run: |
+          cd out
+          git init -q -b voiceover-out
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          mkdir -p "$ID" && mv *.wav *.txt "$ID"/ 2>/dev/null || true
+          git add -A && git commit -qm "Озвучка $ID"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" voiceover-out
