@@ -40,6 +40,7 @@ const result = await build({
     'expo-notifications': path.join(root, 'web/shims/notifications.ts'),
     'expo-location': path.join(root, 'web/shims/location.ts'),
     'expo-haptics': path.join(root, 'web/shims/haptics.ts'),
+    'expo-updates': path.join(root, 'web/shims/updates.ts'),
     '@react-native-async-storage/async-storage': path.join(root, 'web/shims/storage.ts'),
     'react-native-safe-area-context': path.join(root, 'web/shims/safe-area.tsx'),
   },
