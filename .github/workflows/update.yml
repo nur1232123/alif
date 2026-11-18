@@ -1,7 +1,7 @@
 # Обновление по воздуху: после изменений в приложении ученики получают их сами при следующем запуске.
 # Нужен секрет репозитория EXPO_TOKEN (expo.dev → Account settings → Access tokens).
-# Обновление доходит только до сборок с тем же «отпечатком» нативной части (runtimeVersion: fingerprint):
-# если добавился нативный модуль, нужна новая сборка APK.
+# Обновление доходит только до сборок с той же runtimeVersion (app.json и updates/runtime-preview.txt).
+# Если добавился нативный модуль, поднимите runtimeVersion в обоих местах и соберите новый APK (workflow «Сборка APK»).
 name: Обновление приложения
 
 on:
@@ -40,8 +40,7 @@ jobs:
         run: node scripts/env-from-eas.mjs preview
       - name: Отпечаток выложенного APK
         if: env.EXPO_TOKEN != ''
-        # Обновление помечается отпечатком APK из updates/runtime-preview.txt, иначе телефоны его не примут.
-        # После новой сборки APK впишите туда её отпечаток (файл assets/fingerprint внутри APK)
+        # Обновление помечается версией нативной части из updates/runtime-preview.txt, иначе телефоны его не примут
         run: |
           node -e "const f=require('fs');const a=JSON.parse(f.readFileSync('app.json'));a.expo.runtimeVersion=f.readFileSync('updates/runtime-preview.txt','utf8').trim();f.writeFileSync('app.json',JSON.stringify(a,null,2))"
           grep -n runtimeVersion app.json

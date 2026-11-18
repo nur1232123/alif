@@ -22,7 +22,8 @@
         "EXPO_PUBLIC_BILLING": "web",
         "EXPO_PUBLIC_GUMROAD_URL": "https://arabicapp.gumroad.com/l/geiwsb?wanted=true"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "autoIncrement": true
     },
     "production": {
       "extends": "base",

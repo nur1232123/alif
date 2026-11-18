@@ -2,7 +2,7 @@
   "expo": {
     "name": "Алиф",
     "slug": "alif-arabic",
-    "version": "1.0.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "app.alifarabic.mobile"
+      "package": "app.alifarabic.mobile",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -38,7 +42,23 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Местоположение нужно, чтобы рассчитать время намаза и направление киблы. Оно не покидает телефон."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0B6E5F",
+          "sounds": [
+            "./assets/sounds/adhan_full.mp3",
+            "./assets/sounds/adhan_short.mp3"
+          ]
+        }
+      ]
     ],
     "scheme": "alif",
     "experiments": {
@@ -51,9 +71,7 @@
         "projectId": "29f8eb4d-d5a3-425e-bc02-e30179f161d8"
       }
     },
-    "runtimeVersion": {
-      "policy": "fingerprint"
-    },
+    "runtimeVersion": "1.3.0",
     "updates": {
       "url": "https://u.expo.dev/29f8eb4d-d5a3-425e-bc02-e30179f161d8"
     }

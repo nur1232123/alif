@@ -5,7 +5,8 @@ import { ScheherazadeNew_400Regular } from '@expo-google-fonts/scheherazade-new/
 import { ScheherazadeNew_700Bold } from '@expo-google-fonts/scheherazade-new/700Bold';
 import { setAudioModeAsync } from 'expo-audio';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -13,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { ProgressProvider, useProgress } from '@/lib/progress';
+import { ACTION_OFF, loadPrayer, savePrayer, schedulePrayers } from '@/lib/prayer';
 import { loadSession } from '@/lib/session';
 import { setSfxEnabled } from '@/lib/sfx';
 import { track } from '@/lib/feedback';
@@ -28,6 +30,33 @@ function Routes() {
   useEffect(() => {
     loadSession().finally(() => setSessionReady(true));
   }, []);
+
+  // Уведомления о намазе: обновляем на неделю вперёд при каждом запуске
+  useEffect(() => {
+    loadPrayer().then((p) => { if (p.notify) schedulePrayers(p); });
+  }, []);
+
+  // Нажатие на уведомление о намазе открывает вкладку «Намаз», кнопка «Отключить азан» выключает напоминания
+  useEffect(() => {
+    if (!ready || !progress.name) return;
+    const handle = async (r: Notifications.NotificationResponse | null) => {
+      const kind = r?.notification.request.content.data?.kind;
+      if (!r || typeof kind !== 'string' || !kind.startsWith('prayer')) return;
+      Notifications.dismissNotificationAsync(r.notification.request.identifier).catch(() => {});
+      if (r.actionIdentifier === ACTION_OFF) {
+        const p = await loadPrayer();
+        const next = { ...p, notify: false };
+        await savePrayer(next);
+        await schedulePrayers(next);
+        router.replace(`/?tab=prayer&off=${Date.now()}`);
+      } else {
+        router.replace('/?tab=prayer');
+      }
+    };
+    Notifications.getLastNotificationResponseAsync().then(handle).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => sub.remove();
+  }, [ready, progress.name]);
 
   useEffect(() => {
     setSfxEnabled(progress.settings.sounds);
@@ -46,6 +75,9 @@ function Routes() {
       <Stack.Protected guard={!!progress.name}>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen name="qibla" />
+        <Stack.Screen name="tasbih" />
+        <Stack.Screen name="namaz" />
         <Stack.Screen name="lesson/[id]" />
         <Stack.Screen name="tutor" />
         <Stack.Screen name="premium" options={{ animation: 'slide_from_bottom' }} />

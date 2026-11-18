@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Animated, FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId } from '@/lib/numbers';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
 import { getSession } from '@/lib/session';
+import { PrayerTab } from '@/ui/prayer-tab';
 import { say, sayAll } from '@/lib/speech';
 import { Appear, Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -27,7 +28,7 @@ const NUMERALS = ['١', '٢', '٣', '٤', '٥', '٦', '٧'];
 /** Дорожка плавно идёт из стороны в сторону, экзамен стоит по центру */
 const offsetOf = (n: number) => (n === LESSONS_PER_WEEK ? 0 : Math.round(Math.sin((n - 1) * 0.65) * 76));
 
-type Tab = 'path' | 'letters' | 'practice' | 'profile';
+type Tab = 'path' | 'letters' | 'practice' | 'prayer' | 'profile';
 
 function WeekBanner({ week, paidLock }: { week: Week; paidLock: boolean }) {
   const c = useColors();
@@ -715,7 +716,7 @@ function ProfileTab() {
   );
 }
 
-type TabKind = 'path' | 'letters' | 'practice' | 'tutor' | 'profile';
+type TabKind = 'path' | 'letters' | 'practice' | 'prayer' | 'tutor' | 'profile';
 
 /** Простые значки вкладок, нарисованные без картинок: так они одинаково выглядят на всех телефонах */
 function TabIcon({ kind, color, back }: { kind: TabKind; color: string; back: string }) {
@@ -734,6 +735,16 @@ function TabIcon({ kind, color, back }: { kind: TabKind; color: string; back: st
       <View style={box}>
         <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+        </View>
+      </View>
+    );
+  }
+  if (kind === 'prayer') {
+    // Полумесяц: круг, частично закрытый кругом цвета фона
+    return (
+      <View style={box}>
+        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: color, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: 6, top: -3, width: 20, height: 20, borderRadius: 10, backgroundColor: back }} />
         </View>
       </View>
     );
@@ -888,7 +899,15 @@ export default function Home() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { progress, isNewUser, liveStreak, todayCount } = useProgress();
-  const [tab, setTab] = useState<Tab>('path');
+  const params = useLocalSearchParams<{ tab?: string; off?: string }>();
+  const [tab, setTab] = useState<Tab>(params.tab === 'prayer' ? 'prayer' : 'path');
+  // Переход из уведомления о намазе открывает вкладку «Намаз»
+  const navKey = `${params.tab ?? ''}|${params.off ?? ''}`;
+  const [seenNav, setSeenNav] = useState(navKey);
+  if (navKey !== seenNav) {
+    setSeenNav(navKey);
+    if (params.tab === 'prayer') setTab('prayer');
+  }
   // Новичка, только что назвавшего имя, сначала встречает фенёк с вопросами
   const needsOnboarding = isNewUser && !progress.onboarding && Object.keys(progress.done).length === 0;
   useEffect(() => {
@@ -908,13 +927,14 @@ export default function Home() {
         </View>
       </View>
       <View style={{ flex: 1 }}>
-        {tab === 'path' ? <PathTab /> : tab === 'letters' ? <LettersTab /> : tab === 'practice' ? <PracticeTab /> : <ProfileTab />}
+        {tab === 'path' ? <PathTab /> : tab === 'letters' ? <LettersTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'prayer' ? <PrayerTab key={params.off ?? ''} notice={params.off ? 'Азан отключён. Включить снова можно в разделе «Азан в уведомлении».' : null} /> : <ProfileTab />}
       </View>
       <View style={{ paddingBottom: insets.bottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line, backgroundColor: c.surface }}>
         <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', flexDirection: 'row' }}>
           <TabButton id="tab-path" kind="path" label="Путь" active={tab === 'path'} onPress={() => setTab('path')} />
           <TabButton id="tab-letters" kind="letters" label="Буквы" active={tab === 'letters'} onPress={() => setTab('letters')} />
           <TabButton id="tab-practice" kind="practice" label="Тренировка" active={tab === 'practice'} onPress={() => setTab('practice')} />
+          <TabButton id="tab-prayer" kind="prayer" label="Намаз" active={tab === 'prayer'} onPress={() => setTab('prayer')} />
           <TabButton id="tab-tutor" kind="tutor" label="Учитель" active={false} onPress={() => router.push('/tutor')} />
           <TabButton id="tab-profile" kind="profile" label="Профиль" active={tab === 'profile'} onPress={() => setTab('profile')} />
         </View>

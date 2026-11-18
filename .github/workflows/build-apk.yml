@@ -1,0 +1,47 @@
+name: Сборка APK
+# Собирает APK на серверах Expo и выкладывает его в релиз GitHub: сайт берёт последний релиз сам.
+# Нужен секрет EXPO_TOKEN. Запуск вручную: Actions → «Сборка APK» → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Что нового (текст релиза)
+        required: false
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Проверки
+        run: npm run check
+      - name: Сборка на серверах Expo (ждём готовый APK)
+        id: eas
+        run: |
+          npx eas-cli@latest build --platform android --profile preview --non-interactive --wait --json > build.json
+          cat build.json
+          url=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json'));console.log(b[0].artifacts.buildUrl||b[0].artifacts.applicationArchiveUrl)")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Релиз на GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          curl -sSL -o alif.apk "${{ steps.eas.outputs.url }}"
+          ls -la alif.apk
+          v=$(node -p "require('./app.json').expo.version")
+          tag="v$v"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" alif.apk --clobber
+          else
+            gh release create "$tag" alif.apk --title "Алиф $v" --notes "${NOTES:-Новая версия приложения «Алиф».}" --latest
+          fi
