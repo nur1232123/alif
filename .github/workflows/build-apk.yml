@@ -9,6 +9,7 @@ on:
         required: false
 permissions:
   contents: write
+  actions: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -45,3 +46,17 @@ jobs:
           else
             gh release create "$tag" alif.apk --title "Алиф $v" --notes "${NOTES:-Новая версия приложения «Алиф».}" --latest
           fi
+      - name: Сообщить старым версиям о новом APK (site/version.json)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          v=$(node -p "require('./app.json').expo.version")
+          node -e "
+            const a=require('./app.json').expo;
+            const notes=(process.env.NOTES||'Исправления и улучшения').split(/(?<=[.!])\\s+/).filter(Boolean);
+            require('fs').writeFileSync('site/version.json', JSON.stringify({version:a.version, runtime:a.runtimeVersion, apk:'https://github.com/${{ github.repository }}/releases/download/v'+a.version+'/alif.apk', notes}, null, 2)+'\\n');"
+          cat site/version.json
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add site/version.json && git commit -qm "Сайт: version.json для версии $v" && git push -q
+          gh workflow run pages.yml --ref main
