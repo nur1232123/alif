@@ -21,7 +21,11 @@ export type Progress = {
   unlocked?: boolean;
   /** Мини-курс «Учим цифры»: лучший результат по уровням, доля от 0 до 1 */
   numbers?: Record<string, number>;
+  /** Ответы фенька при первом входе: зачем учит, что уже знает, сколько этапов пропустил по тесту */
+  onboarding?: Onboarding;
 };
+
+export type Onboarding = { goal: string; level: number; minutes: number; skipped: number; at: string };
 
 export type Settings = {
   sounds: boolean;
@@ -94,6 +98,7 @@ export function mergeProgress(cloud: Progress, local: Progress): Progress {
     mistakes: maxMap(cloud.mistakes, local.mistakes),
     srs,
     numbers: maxMap(cloud.numbers, local.numbers),
+    onboarding: local.onboarding ?? cloud.onboarding,
     settings: local.name ? local.settings : { ...local.settings, ...cloud.settings },
   };
 }

@@ -45,6 +45,7 @@ function Routes() {
     >
       <Stack.Protected guard={!!progress.name}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="lesson/[id]" />
         <Stack.Screen name="tutor" />
         <Stack.Screen name="premium" options={{ animation: 'slide_from_bottom' }} />

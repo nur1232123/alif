@@ -2,13 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ALL_WEEKS } from '@/data/course';
 import { ALL_LESSONS, getLesson, lessonId, LESSONS_PER_WEEK } from './plan';
-import { dayKey, EMPTY, normalizeProgress, SRS_DAYS, type Progress, type Settings } from './progress-model';
+import { dayKey, EMPTY, normalizeProgress, SRS_DAYS, type Onboarding, type Progress, type Settings } from './progress-model';
 import { TEST_MODE } from './server';
 
 const KEY = 'alif.progress.v5';
 
 export { dayKey, EMPTY, mergeProgress, normalizeProgress, SRS_DAYS } from './progress-model';
-export type { Progress, Settings } from './progress-model';
+export type { Onboarding, Progress, Settings } from './progress-model';
 
 const today = () => dayKey(new Date());
 
@@ -38,6 +38,8 @@ type Ctx = {
   /** true, если имя введено в этом запуске приложения */
   isNewUser: boolean;
   setName: (name: string) => void;
+  /** Сохраняет ответы первого входа и отмечает пропущенные по тесту этапы пройденными */
+  completeOnboarding: (answers: Omit<Onboarding, 'at'>, lessonsPerDay: number) => void;
   finishLesson: (id: string, score: number, total: number) => FinishResult;
   finishPractice: () => void;
   /** Записывает уровень мини-курса цифр и возвращает лучший результат */
@@ -87,6 +89,26 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     (name: string) => {
       setIsNewUser(latest.current.name === null);
       save({ ...latest.current, name });
+    },
+    [save],
+  );
+
+  const completeOnboarding = useCallback(
+    (answers: Omit<Onboarding, 'at'>, lessonsPerDay: number) => {
+      const current = latest.current;
+      const done = { ...current.done };
+      const stars = new Set(current.stars);
+      for (const l of ALL_LESSONS) {
+        if (l.week.stageId <= answers.skipped && !(l.id in done)) done[l.id] = { score: 1, total: 1 };
+      }
+      for (let s = 1; s <= answers.skipped; s++) stars.add(s);
+      save({
+        ...current,
+        done,
+        stars: [...stars].sort((a, b) => a - b),
+        onboarding: { ...answers, at: new Date().toISOString() },
+        settings: { ...current.settings, dailyGoal: lessonsPerDay },
+      });
     },
     [save],
   );
@@ -192,10 +214,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      ready, progress, isNewUser, setName, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings,
+      ready, progress, isNewUser, setName, completeOnboarding, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings,
       currentLessonId, lessonState, todayCount, liveStreak, replaceProgress: save,
     }),
-    [ready, progress, isNewUser, setName, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings, currentLessonId, lessonState, todayCount, liveStreak, save],
+    [ready, progress, isNewUser, setName, completeOnboarding, finishLesson, finishPractice, finishNumbers, recordAnswer, updateSettings, currentLessonId, lessonState, todayCount, liveStreak, save],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

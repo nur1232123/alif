@@ -8,6 +8,7 @@ import PremiumScreen from '@/app/premium';
 import SubscriptionScreen from '@/app/subscription';
 import TutorScreen from '@/app/tutor';
 import Welcome from '@/app/welcome';
+import Onboarding from '@/app/onboarding';
 import { AccountProvider } from '@/lib/account';
 import { PremiumProvider } from '@/lib/premium';
 import { EMPTY, ProgressProvider, useProgress } from '@/lib/progress';
@@ -85,7 +86,7 @@ function Routes() {
   if (!progress.name || pathname === '/welcome') return <Welcome key={path} />;
 
   const [, section, id] = pathname.split('/');
-  const Screen = section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : section === 'subscription' ? SubscriptionScreen : Home;
+  const Screen = section === 'onboarding' ? Onboarding : section === 'lesson' ? LessonScreen : section === 'tutor' ? TutorScreen : section === 'premium' ? PremiumScreen : section === 'subscription' ? SubscriptionScreen : Home;
   return (
     <ParamsContext.Provider key={path} value={{ ...params, id }}>
       <Screen />

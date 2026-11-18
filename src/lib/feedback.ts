@@ -23,7 +23,7 @@ export async function sendReport(report: { kind: ReportKind; reason: string; mes
   return !error;
 }
 
-export type EventName = 'open' | 'lesson_start' | 'lesson_finish' | 'premium_view' | 'tutor_ask';
+export type EventName = 'open' | 'lesson_start' | 'lesson_finish' | 'premium_view' | 'tutor_ask' | 'onboarding';
 
 const OPEN_KEY = 'alif.opened.v1';
 

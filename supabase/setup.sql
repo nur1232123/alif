@@ -63,3 +63,6 @@ create trigger reviews_limit before insert on public.reviews for each row execut
 -- Анонимный счётчик сайта (миграция site_visits): посещения и нажатия «Скачать»,
 -- без IP, имён и постоянного номера; tz_country переводит часовой пояс в страну.
 -- Полный текст применён через Supabase: таблицы site_visits, tz_country, триггер site_visits_limit.
+
+-- Событие «onboarding» (миграция events_onboarding): ответы фенька при первом входе
+-- lesson_id = «цель|уровень|уроков в день», value = сколько этапов пропущено по тесту.

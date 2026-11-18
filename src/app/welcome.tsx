@@ -22,7 +22,8 @@ export default function Welcome() {
   };
 
   // Переход только после сохранения имени: главный экран закрыт, пока имени нет
-  if (submitted && progress.name === clean) return <Redirect href="/" />;
+  // Новичка встречает фенёк с вопросами, остальные сразу на главную
+  if (submitted && progress.name === clean) return <Redirect href={progress.onboarding || Object.keys(progress.done).length ? '/' : '/onboarding'} />;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

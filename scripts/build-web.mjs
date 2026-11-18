@@ -25,7 +25,7 @@ const result = await build({
   target: 'es2020',
   jsx: 'automatic',
   charset: 'utf8',
-  loader: { '.wav': 'dataurl', '.mp3': 'dataurl' },
+  loader: { '.wav': 'dataurl', '.mp3': 'dataurl', '.png': 'dataurl' },
   resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js', '.json'],
   tsconfig: path.join(root, 'tsconfig.json'),
   alias: {

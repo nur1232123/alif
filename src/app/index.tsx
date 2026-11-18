@@ -889,6 +889,11 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const { progress, isNewUser, liveStreak, todayCount } = useProgress();
   const [tab, setTab] = useState<Tab>('path');
+  // Новичка, только что назвавшего имя, сначала встречает фенёк с вопросами
+  const needsOnboarding = isNewUser && !progress.onboarding && Object.keys(progress.done).length === 0;
+  useEffect(() => {
+    if (needsOnboarding) router.replace('/onboarding');
+  }, [needsOnboarding]);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }} testID="home">
