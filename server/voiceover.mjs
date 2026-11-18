@@ -35,6 +35,30 @@ export const VOICEOVERS = {
       { text: 'Учи арабский правильно — приложение «Алиф», ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
     ],
   },
+  // Сериал «Переехал в Дубай», серия «Симка»: живой рассказчик и настоящий арабский
+  simka: (() => {
+    const story = 'Say in Russian, as a lively, funny young guy telling a story to friends on TikTok, with energy, emotion and natural pauses';
+    const me = 'Say in Arabic with correct, clear pronunciation, as a cheerful young Russian tourist, a little unsure but proud of himself';
+    const shop = 'Say in Arabic naturally, as a friendly, relaxed shopkeeper at Dubai airport, Gulf Arabic intonation';
+    return {
+      voice: 'Puck',
+      style: story,
+      lines: [
+        'Прилетел в Дубай. Сети нет. Первым делом — симка. Пару фраз выучил в самолёте в «Алифе».',
+        { text: 'السَّلَامُ عَلَيْكُم!', style: me },
+        { text: 'وَعَلَيْكُمُ السَّلَام!', voice: 'Achird', style: shop },
+        { text: 'أُرِيدُ شَرِيحَة.', style: me },
+        { text: 'شَهْر أَوْ أُسْبُوع؟', voice: 'Achird', style: shop },
+        { text: 'شَهْر.', style: me },
+        { text: 'مِيَّة دِرْهَم.', voice: 'Achird', style: shop },
+        { text: 'غَالِي!', style: 'Say in Arabic, shocked and loud, like a young tourist who just heard a crazy price' },
+        { text: 'طَيِّب… تِسْعِين.', voice: 'Achird', style: 'Say in Arabic, as a friendly shopkeeper reluctantly giving a discount, with a small sigh and a smile' },
+        { text: 'شُكْرًا!', style: 'Say in Arabic, happy and grateful, as a young tourist' },
+        { text: 'Сеть появилась. И тут…', style: 'Say in Russian, as a young guy relieved, then suddenly worried, slowing down at the end' },
+        { text: 'Три фразы — и я уже торгуюсь по-арабски. Следующая серия — такси.', style: 'Say in Russian, proud and playful, like ending a funny TikTok story' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
