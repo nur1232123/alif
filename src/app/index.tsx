@@ -14,6 +14,7 @@ import { NUMBER_LEVELS, NUMBERS_PASS, numbersLessonId } from '@/lib/numbers';
 import { FREE_TUTOR_PER_DAY, isPaidWeek, usePremium } from '@/lib/premium';
 import { TEST_MODE } from '@/lib/server';
 import { getSession } from '@/lib/session';
+import { UpdateBanner } from '@/ui/update-banner';
 import { say, sayAll } from '@/lib/speech';
 import { Appear, Ar, Button, Khatam, PlayGlyph, ProgressBar, slots, T } from '@/ui/kit';
 import { fonts, useColors } from '@/ui/theme';
@@ -920,6 +921,7 @@ export default function Home() {
         </View>
       </View>
       <WelcomeBack />
+      <UpdateBanner />
     </View>
   );
 }
