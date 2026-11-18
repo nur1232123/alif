@@ -260,6 +260,7 @@ section { padding: clamp(56px, 9vw, 104px) 0; }
 .howto summary { cursor: pointer; padding: 14px 16px; font-weight: 500; font-size: 16px; }
 .howto > div { padding: 0 16px 16px; color: var(--muted); font-size: 16px; display: grid; gap: 8px; }
 .howto ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+.howto-top { margin-top: 16px; }
 
 /* Английская часть для проверяющих и иностранных гостей */
 .en { background: var(--surface); border-top: 1px solid var(--line); }

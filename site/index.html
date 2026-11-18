@@ -48,6 +48,17 @@
           <a class="btn btn-quiet" href="#course">Как устроен курс</a>
         </div>
         <p class="note" data-download-note>Алфавит и чтение бесплатно, без рекламы.</p>
+        <details class="howto howto-top" data-howto hidden>
+          <summary>Телефон пишет, что приложение может быть небезопасным?</summary>
+          <div>
+            <p>Так Android предупреждает о любом приложении не из Google Play. Алиф пока устанавливается файлом, поэтому:</p>
+            <ol>
+              <li>Откройте скачанный файл <b>alif.apk</b>.</li>
+              <li>Если телефон спросит, разрешите установку из этого источника.</li>
+              <li>В окне Play Защиты нажмите «Подробнее», затем «Всё равно установить».</li>
+            </ol>
+          </div>
+        </details>
       </div>
 
       <div class="stage" id="stage" aria-live="polite">
@@ -421,7 +432,7 @@
     a.removeAttribute('href');
     a.querySelector('span').textContent = 'Скоро для Android';
   });
-  if (apk) document.querySelector('[data-howto]').hidden = false;
+  if (apk) document.querySelectorAll('[data-howto]').forEach((d) => { d.hidden = false; });
   if (!apk) {
     document.querySelector('[data-download-note]').textContent = 'Приложение проходит последние проверки. Алфавит и чтение будут бесплатны, без рекламы.';
     document.querySelector('[data-get-text]').textContent = 'Android-версия выходит совсем скоро. Ссылка на скачивание появится здесь.';
