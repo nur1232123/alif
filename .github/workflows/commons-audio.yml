@@ -1,0 +1,42 @@
+name: Аудио с Wikimedia Commons
+# Ищет записи азана на Commons, сохраняет их лицензии и сами файлы в ветку voiceover-out (папка adhan)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Лицензии и файлы
+        run: |
+          mkdir -p out/adhan && cd out/adhan
+          UA="AlifApp/1.0 (https://alif.best)"
+          curl -sS -A "$UA" "https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=categorymembers&gcmtitle=Category:Adhan&gcmtype=file&gcmlimit=200&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiextmetadatafilter=LicenseShortName|Artist|UsageTerms|Credit" > list.json
+          python3 - <<'PY'
+          import json, subprocess
+          d = json.load(open('list.json'))
+          rows = []
+          for p in d.get('query', {}).get('pages', {}).values():
+              ii = (p.get('imageinfo') or [{}])[0]
+              if not str(ii.get('mime', '')).startswith(('audio', 'application/ogg', 'video')): continue
+              m = ii.get('extmetadata', {})
+              rows.append({'title': p['title'], 'url': ii.get('url'), 'mime': ii.get('mime'), 'size': ii.get('size'),
+                           'license': m.get('LicenseShortName', {}).get('value'), 'artist': m.get('Artist', {}).get('value'), 'credit': m.get('Credit', {}).get('value')})
+          json.dump(rows, open('licenses.json', 'w'), ensure_ascii=False, indent=1)
+          ok = [r for r in rows if r['license'] and any(k in r['license'] for k in ['Public domain', 'CC0', 'CC BY-SA', 'CC BY ', 'CC-BY'])]
+          for i, r in enumerate(ok[:12]):
+              ext = r['url'].rsplit('.', 1)[-1]
+              subprocess.run(['curl', '-sS', '-L', '-A', 'AlifApp/1.0 (https://alif.best)', '-o', f'file{i:02d}.{ext}', r['url']])
+              r['file'] = f'file{i:02d}.{ext}'
+          json.dump(ok[:12], open('downloaded.json', 'w'), ensure_ascii=False, indent=1)
+          print(json.dumps(rows, ensure_ascii=False, indent=1))
+          PY
+          ls -la
+      - name: В ветку voiceover-out
+        run: |
+          git clone -q --depth 1 -b voiceover-out "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" br
+          rm -rf br/adhan && cp -r out/adhan br/adhan && cd br
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -qm "Записи азана с Commons" && git push -q
