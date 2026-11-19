@@ -4,7 +4,7 @@ import { FlatList, Linking, Modal, Platform, Pressable, ScrollView, Switch, Text
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtHijri, HIJRI_MONTHS_AR, toHijri } from '@/lib/hijri';
 import {
-  dayStr, FARD, fmtTime, loadPrayer, loadTrack, locate, METHODS, nextPrayer, PRAYERS, savePrayer, saveTrack, schedulePrayers, timesFor, trackStreak,
+  dayStr, FARD, fmtTime, loadPrayer, loadTrack, locate, METHODS, nextPrayer, PRAYERS, savePrayer, saveTrack, schedulePrayers, testAdhan, timesFor, trackStreak,
   type MethodId, type Place, type PrayerKey, type PrayerSettings, type Sound, type Track,
 } from '@/lib/prayer';
 import { Fox } from './fox';
@@ -52,6 +52,16 @@ export function PrayerTab({ notice }: { notice?: string | null }) {
   const [picker, setPicker] = useState<'city' | 'method' | null>(null);
   const [msg, setMsg] = useState<string | null>(notice ?? null);
   const [busy, setBusy] = useState(false);
+  const [test, setTest] = useState<string | null>(null);
+
+  const runTest = async () => {
+    if (!s) return;
+    setTest('Через 5 секунд придёт проверочное уведомление. Можно свернуть приложение.');
+    const r = await testAdhan(s.sound);
+    if (r === 'denied') setTest('Телефон не разрешил уведомления. Включите их для «Алиф» в настройках телефона.');
+    else if (r === 'muted') setTest('Звук азана выключен в настройках телефона. Откройте настройки → Уведомления → «Алиф» → «Азан» и включите звук.');
+    else if (r === 'error') setTest('Не получилось отправить проверку. Попробуйте ещё раз.');
+  };
 
   useEffect(() => {
     loadPrayer().then(setS);
@@ -250,6 +260,15 @@ export function PrayerTab({ notice }: { notice?: string | null }) {
                 </Pressable>
               ))}
             </View>
+            {Platform.OS !== 'web' ? (
+              <View style={{ gap: 6 }}>
+                <Button label="🔊 Проверить азан" kind="quiet" onPress={runTest} testID="prayer-test" />
+                {test ? <T size={13} tone="muted" style={{ lineHeight: 19 }} testID="prayer-test-msg">{test}</T> : null}
+                {s.sound !== 'plain' ? (
+                  <T size={13} tone="muted" style={{ lineHeight: 19 }}>Азан звучит громкостью будильника, даже если телефон на беззвучном или вибрации.</T>
+                ) : null}
+              </View>
+            ) : null}
             {Platform.OS === 'android' ? (
               <Pressable accessibilityRole="button" onPress={() => Linking.openSettings()} testID="prayer-exact">
                 <T size={13} tone="muted" style={{ lineHeight: 19 }}>Если уведомления приходят с опозданием, разрешите «Будильники и напоминания» для «Алиф» в настройках телефона. <T size={13} tone="accent" weight="bold">Открыть настройки</T></T>

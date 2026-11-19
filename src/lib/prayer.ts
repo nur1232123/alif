@@ -129,24 +129,37 @@ export async function locate(): Promise<Place | 'denied' | 'error'> {
 
 // ---- Уведомления: свой канал для каждого звука, потому что у канала Android звук не меняется ----
 
-const CHANNELS: Record<Sound, { id: string; name: string; sound?: string }> = {
-  full: { id: 'prayer-adhan-full', name: 'Азан (полный)', sound: 'adhan_full.mp3' },
-  short: { id: 'prayer-adhan-short', name: 'Азан (короткий)', sound: 'adhan_short.mp3' },
+// Азан звучит как будильник: громкостью будильника, даже когда телефон на беззвучном или вибрации.
+// Звук канала после создания не меняется, поэтому у новых каналов новые id, а старые удаляются
+const CHANNELS: Record<Sound, { id: string; name: string; sound?: string; alarm?: boolean }> = {
+  full: { id: 'prayer-adhan-full-v2', name: 'Азан (полный)', sound: 'adhan_full.mp3', alarm: true },
+  short: { id: 'prayer-adhan-short-v2', name: 'Азан (короткий)', sound: 'adhan_short.mp3', alarm: true },
   plain: { id: 'prayer-plain', name: 'Намаз: обычный звук' },
 };
+const OLD_CHANNELS = ['prayer-adhan-full', 'prayer-adhan-short'];
 export const CATEGORY = 'prayer';
 export const ACTION_OFF = 'adhan-off';
 const DAYS_AHEAD = 7;
 
 async function ensureChannels() {
   if (Platform.OS !== 'android') return;
+  for (const id of OLD_CHANNELS) await Notifications.deleteNotificationChannelAsync(id).catch(() => {});
   for (const ch of Object.values(CHANNELS)) {
     await Notifications.setNotificationChannelAsync(ch.id, {
       name: ch.name,
       // eslint-disable-next-line import/namespace -- значение есть в библиотеке, правило не видит реэкспорт
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: ch.alarm ? Notifications.AndroidImportance.MAX : Notifications.AndroidImportance.HIGH,
       sound: ch.sound ?? 'default',
       vibrationPattern: [0, 300, 200, 300],
+      // eslint-disable-next-line import/namespace
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      ...(ch.alarm
+        ? {
+            bypassDnd: true,
+            // eslint-disable-next-line import/namespace
+            audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
+          }
+        : null),
     });
   }
   await Notifications.setNotificationCategoryAsync(CATEGORY, [
@@ -185,6 +198,8 @@ export async function schedulePrayers(s: PrayerSettings): Promise<'ok' | 'denied
               title: isPrayer ? `${p.ru} · ${p.ar}` : `Восход · ${p.ar}`,
               body: isPrayer ? `Время намаза ${p.ru} — ${fmtTime(at)}. ${s.place.name}` : `Время фаджра закончилось — ${fmtTime(at)}`,
               categoryIdentifier: isPrayer ? CATEGORY : undefined,
+              sound: isPrayer ? CHANNELS[s.sound].sound ?? 'default' : 'default',
+              priority: isPrayer ? Notifications.AndroidNotificationPriority.MAX : Notifications.AndroidNotificationPriority.HIGH,
               data: { kind: 'prayer', key: p.key },
             },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: isPrayer ? CHANNELS[s.sound].id : CHANNELS.plain.id },
@@ -204,6 +219,39 @@ export async function schedulePrayers(s: PrayerSettings): Promise<'ok' | 'denied
     return 'ok';
   } catch {
     return 'off';
+  }
+}
+
+export type AdhanTest = 'ok' | 'denied' | 'muted' | 'error';
+
+/** Проверка: азан через 5 секунд. Заодно смотрит, не выключен ли звук канала в настройках телефона */
+export async function testAdhan(sound: Sound): Promise<AdhanTest> {
+  if (Platform.OS === 'web') return 'error';
+  try {
+    await ensureChannels();
+    const perm = await Notifications.requestPermissionsAsync();
+    if (!perm.granted) return 'denied';
+    const ch = CHANNELS[sound];
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'prayer-test',
+      content: {
+        title: 'Проверка азана · الأَذَان',
+        body: 'Так будет звучать напоминание о намазе',
+        categoryIdentifier: CATEGORY,
+        sound: ch.sound ?? 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        data: { kind: 'prayer-test' },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, channelId: ch.id },
+    });
+    if (Platform.OS === 'android') {
+      const got = await Notifications.getNotificationChannelAsync(ch.id);
+      // eslint-disable-next-line import/namespace
+      if (got && (got.sound === null || got.importance < Notifications.AndroidImportance.DEFAULT)) return 'muted';
+    }
+    return 'ok';
+  } catch {
+    return 'error';
   }
 }
 
