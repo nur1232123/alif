@@ -59,6 +59,23 @@ export const VOICEOVERS = {
       ],
     };
   })(),
+  // Серия 2 «Кибла»: азан в торговом центре, кибла через «Алиф»
+  qibla: (() => {
+    const story = 'Say in Russian, as a lively young guy telling a story to friends on TikTok, natural and warm';
+    const fox = 'Say in Russian, fast and confident, as a sassy, cheeky cartoon fox who pops in to help';
+    return {
+      voice: 'Puck',
+      style: story,
+      lines: [
+        'Вечер. Гуляю по моллу в Дубае. И тут телефон…',
+        { text: 'Магриб! Надо срочно помолиться… А где тут кибла?!', style: 'Say in Russian, as a young guy suddenly in a hurry and a bit lost, worried, looking around' },
+        { text: 'Стоп, не крутись! Открой «Алиф»: вкладка «Намаз», кнопка «Кибла».', voice: 'Fenrir', style: fox },
+        { text: 'Так… поворачиваюсь… Есть! Стрелка зелёная!', style: 'Say in Russian, concentrated at first, then relieved and happy' },
+        { text: 'Азан сам напомнил, кибла нашлась за пять секунд.', style: 'Say in Russian, calm, warm and grateful, slower, like a peaceful ending' },
+        { text: 'Всё это — в «Алифе». Ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
