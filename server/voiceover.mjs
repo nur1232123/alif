@@ -76,6 +76,31 @@ export const VOICEOVERS = {
       ],
     };
   })(),
+  // Серия 3 «Сосед»: знакомство в лифте
+  sosed: (() => {
+    const story = 'Say in Russian, as a lively young guy telling a funny story to friends on TikTok, natural and warm';
+    const me = 'Say in Arabic with correct, clear pronunciation, as a young Russian guy, a little unsure but proud of himself';
+    const nb = 'Say in Arabic naturally, as a warm, friendly middle-aged Emirati neighbour, relaxed and smiling';
+    const fox = 'Say in Russian, fast and confident, as a sassy, cheeky cartoon fox whispering a hint';
+    return {
+      voice: 'Puck',
+      style: story,
+      lines: [
+        'Утро. Захожу в лифт — а там сосед.',
+        { text: 'السَّلَامُ عَلَيْكُم!', style: me },
+        { text: 'وَعَلَيْكُمُ السَّلَام! كَيْفَ حَالُكَ؟', voice: 'Achird', style: nb },
+        { text: 'Это я ещё не проходил…', style: 'Say in Russian, as a whisper, a young guy panicking quietly' },
+        { text: 'Кейфа хáлюк — это «как дела». Скажи: альхамдулиллях!', voice: 'Fenrir', style: fox },
+        { text: 'الْحَمْدُ لِلّٰه!', style: me },
+        { text: 'مِنْ أَيْنَ أَنْتَ؟', voice: 'Achird', style: nb },
+        { text: 'Это «откуда ты». Отвечай: ана мин Русия.', voice: 'Fenrir', style: fox },
+        { text: 'أَنَا مِنْ رُوسِيَا.', style: me },
+        { text: 'أَهْلًا وَسَهْلًا! تَعَالَ نَشْرَبْ شَايًا!', voice: 'Achird', style: 'Say in Arabic, as a warm Emirati neighbour, delighted and welcoming, inviting a guest for tea' },
+        { text: 'Три фразы — и меня уже зовут на чай!', style: 'Say in Russian, proud, happy and playful, like ending a funny TikTok story' },
+        { text: 'Учи арабский в «Алифе». Ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
