@@ -101,6 +101,31 @@ export const VOICEOVERS = {
       ],
     };
   })(),
+  // Серия 4 «Такси»: куда, направо-налево, здесь, сколько
+  taksi: (() => {
+    const story = 'Say in Russian, as a lively young guy telling a funny story to friends on TikTok, natural and warm';
+    const me = 'Say in Arabic with correct, clear pronunciation, as a young Russian guy, a little unsure but proud of himself';
+    const drv = 'Say in Arabic naturally, as a friendly, chatty Dubai taxi driver, relaxed, at normal speed';
+    const fox = 'Say in Russian, fast and confident, as a sassy, cheeky cartoon fox whispering a hint';
+    return {
+      voice: 'Puck',
+      style: story,
+      lines: [
+        'Первый день на работе. Ловлю такси.',
+        { text: 'إِلَى أَيْنَ؟', voice: 'Achird', style: drv },
+        { text: 'Иля айна — это «куда». Скажи: иля Бурдж Халифа!', voice: 'Fenrir', style: fox },
+        { text: 'إِلَى بُرْجِ خَلِيفَة!', style: me },
+        { text: 'يَمِين أَمْ يَسَار؟', voice: 'Achird', style: drv },
+        { text: 'Ямин — направо, ясар — налево. Тебе направо!', voice: 'Fenrir', style: fox },
+        { text: 'يَمِين!', style: me },
+        { text: 'هُنَا، مِنْ فَضْلِك.', style: me },
+        { text: 'عِشْرُونَ دِرْهَمًا.', voice: 'Achird', style: drv },
+        { text: 'شُكْرًا!', style: me },
+        { text: 'Четыре фразы — и я доехал сам!', style: 'Say in Russian, proud, happy and playful, like ending a funny TikTok story' },
+        { text: 'Учи арабский в «Алифе». Ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
