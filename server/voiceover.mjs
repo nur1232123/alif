@@ -126,6 +126,32 @@ export const VOICEOVERS = {
       ],
     };
   })(),
+  // Новый формат «Ты слышал эти слова»: слова из песен и сериалов и что они значат
+  slyshal: (() => {
+    const nar = 'Say in Russian, as a charismatic young narrator of a viral TikTok, intriguing, energetic but clear';
+    const m = (s) => `Say in Arabic naturally, as a native Arab man, ${s}`;
+    const f = (s) => `Say in Arabic naturally, as a native Arab woman, ${s}`;
+    return {
+      voice: 'Puck',
+      style: nar,
+      lines: [
+        'Ты слышал эти слова сто раз. А знаешь, что они значат?',
+        { text: 'حَبِيبِي', voice: 'Achird', style: m('warm and friendly, greeting a close friend') },
+        'Хабиби — «мой любимый». Так зовут друга, брата и даже таксиста.',
+        { text: 'يَلَّا!', voice: 'Kore', style: f('energetic and cheerful, hurrying friends') },
+        'Ялла — «давай, поехали!». Самое быстрое слово в арабском.',
+        { text: 'إِنْ شَاءَ اللّٰه', voice: 'Achird', style: m('calm and sincere') },
+        'Иншаллах — «если пожелает Аллах». Так говорят о любом деле в будущем.',
+        { text: 'مَا شَاءَ اللّٰه!', voice: 'Kore', style: f('admiring and amazed, seeing something beautiful') },
+        'Машаллах — так восхищаются: красиво, здорово, молодец.',
+        { text: 'وَاللّٰهِ!', voice: 'Achird', style: m('surprised and convincing, like swearing something is true') },
+        'Валлахи — «клянусь Аллахом». Арабское «честно-честно».',
+        { text: 'خَلَاص!', voice: 'Kore', style: f('firm and a bit tired, saying enough') },
+        'Халас — «всё, хватит». А какое слово ты слышал чаще? Пиши в комментариях!',
+        { text: 'Учи арабский в «Алифе». Ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
