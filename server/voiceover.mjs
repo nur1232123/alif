@@ -152,6 +152,28 @@ export const VOICEOVERS = {
       ],
     };
   })(),
+  // Формат «Ты точно не знал»: шесть фактов об арабском
+  fakty: (() => {
+    const nar = 'Say in Russian, as a charismatic young narrator of a viral facts TikTok, intriguing, energetic, clear, with small dramatic pauses';
+    return {
+      voice: 'Puck',
+      style: nar,
+      lines: [
+        'Шесть фактов об арабском, которые ты точно не знал. Пятый — про слова, которые ты говоришь каждый день.',
+        'Факт первый. В арабском нет заглавных букв. Вообще.',
+        'Факт второй. Арабы почти не пишут гласные. Эти три буквы можно прочитать так…',
+        { text: 'كَتَبَ … كُتُب', voice: 'Achird', style: 'Say in Arabic, slowly and clearly, as a native Arab teacher reading two different words with a pause between them' },
+        '«Он написал» или «книги». Какое слово — подскажет смысл.',
+        'Факт третий. Буквы пишут справа налево, а числа — слева направо.',
+        'Факт четвёртый. Цифры, которые мы зовём арабскими, многие арабы пишут совсем иначе.',
+        'Факт пятый. «Магазин», «кофе», «жираф» и «алгебра» пришли к нам из арабского.',
+        'Факт шестой. Арабский называют «языком буквы дад». Этот звук долго считали чисто арабским.',
+        { text: 'ضَاد', voice: 'Achird', style: 'Say in Arabic, slowly and clearly, as a native Arab teacher pronouncing the name of the letter' },
+        'Какой факт удивил тебя больше всего? Пиши номер в комментариях!',
+        { text: 'Учи арабский в «Алифе». Ссылка в профиле.', voice: 'Fenrir', style: 'Say in Russian, upbeat and friendly, as a cheeky cartoon fox' },
+      ],
+    };
+  })(),
 };
 
 /** Реплика бывает строкой или объектом со своим голосом */
